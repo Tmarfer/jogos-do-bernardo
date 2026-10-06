@@ -173,6 +173,7 @@ test('Palavras não mostradas têm prioridade mesmo ao interromper e trocar de n
 
 function fakeSpeech() {
   window.__spoken = [];
+  window.__utterances = [];
   window.__cancels = 0;
   window.__voices = [
     { name: 'Remote Brazilian', lang: 'pt-BR', localService: false },
@@ -186,11 +187,78 @@ function fakeSpeech() {
     addEventListener: (name, listener) => { if (name === 'voiceschanged') window.__voicesChanged = listener; },
     speak: (utterance) => {
       window.__lastUtterance = utterance;
-      window.__spoken.push({ text: utterance.text, lang: utterance.lang, local: utterance.voice.localService, voice: utterance.voice.name, gesture: navigator.userActivation.isActive });
+      window.__utterances.push(utterance);
+      window.__spoken.push({ text: utterance.text, rate: utterance.rate, lang: utterance.lang, local: utterance.voice.localService, voice: utterance.voice.name, gesture: navigator.userActivation.isActive });
     },
   } });
   window.AudioContext = undefined;
   window.webkitAudioContext = undefined;
+}
+
+for (const [level, seed, repeatedWord] of [[1, 1, 'COCO'], [2, 8520, 'BANANA']]) {
+  test(`Nível ${level}: ouvir alterna palavra/sílabas, preserva repetições e reinicia por palavra`, async () => {
+    const { page, context, errors, remote } = await game({}, fakeSpeech);
+    try {
+      await page.evaluate((initialSeed) => {
+        let value = initialSeed;
+        Math.random = () => ((value = (value * 16807) % 2147483647) - 1) / 2147483646;
+      }, seed);
+      await page.locator('summary').tap();
+      await page.locator('#sound-toggle').check();
+      await page.locator('summary').tap();
+      await page.locator(level === 1 ? '#level-one' : '#level-two').tap();
+      const word = await current(page);
+      assert.equal(word.word, repeatedWord);
+      assert.equal(await page.evaluate(() => window.__spoken.at(-1).text), word.word.toLowerCase());
+      await page.locator('#listen-button').tap();
+      assert.equal(await page.evaluate(() => window.__spoken.at(-1).text), word.word.toLowerCase());
+      // Help and wrong answers do not consume the replay alternation.
+      await page.locator('#help-button').tap();
+      await choice(page, word.alternatives[0].find((part) => part !== word.syllables[0])).tap();
+      const before = await page.evaluate(() => window.__spoken.length);
+      const cancels = await page.evaluate(() => window.__cancels);
+      await page.locator('#listen-button').tap();
+      const split = await page.evaluate((start) => window.__spoken.slice(start), before);
+      assert.deepEqual(split.map((part) => part.text), word.syllables.map((part) => `${part.toLowerCase()}.`));
+      assert.ok(split.every((part) => part.rate < 0.82 && part.gesture && part.local && part.lang === 'pt-BR'));
+      assert.ok(await page.evaluate(() => window.__cancels) > cancels);
+      assert.deepEqual(await page.locator('.answer-slot').allTextContents(), word.syllables.map(() => '?'));
+      await noReveal(page, word);
+      // Finishing a syllable must not enqueue anything outside the original gesture.
+      await page.evaluate(() => window.__utterances.at(-2).onend());
+      assert.equal(await page.evaluate(() => window.__spoken.length), before + word.syllables.length);
+      await page.locator('#listen-button').tap();
+      assert.equal(await page.evaluate(() => window.__spoken.at(-1).text), word.word.toLowerCase());
+      // Late events from a canceled queue cannot replace the current playback/fallback.
+      await page.evaluate(() => window.__utterances.at(-2).onerror({ error: 'synthesis-failed' }));
+      assert.doesNotMatch(await page.locator('#voice-note').textContent(), /Sem voz/);
+      await page.locator('summary').tap();
+      await page.locator('#sound-toggle').uncheck();
+      await page.locator('summary').tap();
+      const mutedBefore = await page.evaluate(() => window.__spoken.length);
+      await page.locator('#listen-button').tap();
+      assert.equal(await page.evaluate(() => window.__spoken.length), mutedBefore);
+      await page.locator('summary').tap();
+      await page.locator('#sound-toggle').check();
+      await page.locator('summary').tap();
+      await page.locator('#listen-button').tap();
+      assert.deepEqual(await page.evaluate((length) => window.__spoken.slice(-length).map((part) => part.text), word.syllables.length), word.syllables.map((part) => `${part.toLowerCase()}.`));
+      await complete(page);
+      await page.locator('#next-button').tap();
+      const nextWord = await current(page);
+      await page.locator('#listen-button').tap();
+      assert.equal(await page.evaluate(() => window.__spoken.at(-1).text), nextWord.word.toLowerCase());
+      await page.locator('#listen-button').tap();
+      assert.deepEqual(await page.evaluate((length) => window.__spoken.slice(-length).map((part) => part.text), nextWord.syllables.length), nextWord.syllables.map((part) => `${part.toLowerCase()}.`));
+      await page.locator('#back-button').tap();
+      await page.locator(level === 1 ? '#level-two' : '#level-one').tap();
+      const otherWord = await current(page);
+      await page.locator('#listen-button').tap();
+      assert.equal(await page.evaluate(() => window.__spoken.at(-1).text), otherWord.word.toLowerCase());
+      assert.deepEqual(errors, []);
+      assert.deepEqual(remote, []);
+    } finally { await context.close(); }
+  });
 }
 
 test('Voz local em português: início, replay, ajuda, erros e cancelamento ao desligar', async () => {

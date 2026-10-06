@@ -21,7 +21,8 @@
   let roundVersion = 0;
   let speechVersion = 0;
   let speechFailed = false;
-  let activeUtterance;
+  let activeUtterances = [];
+  let replaySyllables = false;
   const presented = levels.map(() => new Set());
   let audioContext;
   let preferences = { sound: false, motion: !window.matchMedia('(prefers-reduced-motion: reduce)').matches };
@@ -90,7 +91,7 @@
 
   function cancelSpeech() {
     speechVersion += 1;
-    activeUtterance = undefined;
+    activeUtterances = [];
     try { window.speechSynthesis?.cancel(); } catch { /* Voice is optional. */ }
   }
 
@@ -106,33 +107,42 @@
     if (level === 0 || ui.game.hidden) return;
     if (!preferences.sound) ui.voiceNote.textContent = 'Som desligado. Um adulto pode dizer o nome da figura.';
     else if (!localPortugueseVoice() || speechFailed) ui.voiceNote.textContent = 'Sem voz disponível. Um adulto pode dizer o nome da figura.';
-    else ui.voiceNote.textContent = 'Quer ouvir a palavra? Toque em Ouvir de novo.';
+    else ui.voiceNote.textContent = replaySyllables ? 'Toque de novo para ouvir as sílabas separadas.' : 'Toque em Ouvir de novo para ouvir a palavra inteira.';
   }
 
-  function speak(text) {
+  function speak(text, separateSyllables = false) {
     cancelSpeech();
     speechFailed = false;
     const voice = localPortugueseVoice();
-    if (!preferences.sound || !voice) { updateVoiceNote(); return; }
+    if (!preferences.sound || !voice) { updateVoiceNote(); return false; }
     const version = speechVersion;
     try {
-      const utterance = new window.SpeechSynthesisUtterance(text.toLowerCase());
-      utterance.voice = voice;
-      utterance.lang = voice.lang;
-      utterance.rate = 0.82;
-      utterance.pitch = 1.05;
-      utterance.volume = 0.65;
-      utterance.onerror = (event) => {
-        if (version !== speechVersion || event.error === 'canceled' || event.error === 'interrupted') return;
-        speechFailed = true;
-        updateVoiceNote();
-      };
-      utterance.onend = () => { if (version === speechVersion) activeUtterance = undefined; };
-      activeUtterance = utterance; // Retain the utterance while Safari is speaking.
-      // This is synchronous in the level/next/replay/help touch handler: no autoplay timer.
-      window.speechSynthesis.speak(utterance);
+      const parts = separateSyllables ? text : [text];
+      // Separate utterances and full stops create syllable boundaries without reading a hyphen.
+      activeUtterances = parts.map((part) => {
+        const utterance = new window.SpeechSynthesisUtterance(`${part.toLowerCase()}${separateSyllables ? '.' : ''}`);
+        utterance.voice = voice;
+        utterance.lang = voice.lang;
+        utterance.rate = separateSyllables ? 0.65 : 0.82;
+        utterance.pitch = 1.05;
+        utterance.volume = 0.65;
+        utterance.onerror = (event) => {
+          if (version !== speechVersion || event.error === 'canceled' || event.error === 'interrupted') return;
+          cancelSpeech();
+          speechFailed = true;
+          updateVoiceNote();
+        };
+        utterance.onend = () => {
+          if (version === speechVersion) activeUtterances = activeUtterances.filter((active) => active !== utterance);
+        };
+        return utterance;
+      });
+      // Retain every utterance for Safari and queue all parts directly during the touch.
+      // No timers or callback-triggered speech: the user gesture authorizes the whole sequence.
+      for (const utterance of activeUtterances) window.speechSynthesis.speak(utterance);
       updateVoiceNote();
-    } catch { speechFailed = true; updateVoiceNote(); }
+      return true;
+    } catch { cancelSpeech(); speechFailed = true; updateVoiceNote(); return false; }
   }
 
   function giveHelp() {
@@ -228,6 +238,7 @@
     roundVersion += 1;
     selected = 0;
     speechFailed = false;
+    replaySyllables = false;
     const current = roundWords[index];
     presented[level].add(current.id);
     if (presented[level].size === wordPool().length) presented[level].clear();
@@ -331,7 +342,15 @@
   byId('back-button').addEventListener('click', showHome);
   byId('finish-back-button').addEventListener('click', showHome);
   byId('home-link').addEventListener('click', (event) => { event.preventDefault(); showHome(); });
-  ui.listen.addEventListener('click', () => { if (level > 0 && selected < roundWords[index].syllables.length && !ui.game.hidden && !ui.round.hidden) speak(roundWords[index].word); });
+  ui.listen.addEventListener('click', () => {
+    if (level === 0 || ui.game.hidden || ui.round.hidden) return;
+    const current = roundWords[index];
+    if (selected >= current.syllables.length) return;
+    if (speak(replaySyllables ? current.syllables : current.word, replaySyllables)) {
+      replaySyllables = !replaySyllables;
+      updateVoiceNote();
+    }
+  });
   ui.help.addEventListener('click', giveHelp);
   ui.sound.addEventListener('change', () => {
     preferences.sound = ui.sound.checked;

@@ -105,6 +105,7 @@ html[data-motion="off"] *,html[data-motion="off"] *::before,html[data-motion="of
 @media(min-width:700px) and (max-height:850px){.game-navigation{margin-bottom:4px}.voice-note{margin-bottom:12px}.voice-controls{margin:4px 0}.completed-word[hidden]+.word-model{margin-bottom:12px}.completed-word{font-size:22px}.completed-word+.word-model{font-size:22px;margin-bottom:10px}}
 @media(min-width:700px) and (max-height:700px){.game-navigation{margin-top:-12px;margin-bottom:0}.voice-note{margin-bottom:10px}.voice-controls{margin:0}.voice-controls .secondary-button{min-height:44px}.completed-word[hidden]+.word-model{font-size:28px;margin-bottom:10px}.completed-word{font-size:20px}.completed-word+.word-model{font-size:20px;margin-bottom:8px}}
 @media(min-width:700px) and (min-height:701px) and (max-height:850px){#game.selection-level .picture-wrap,#game.selection-level .picture{height:130px}#game.selection-level .party-art{height:76px}#game.selection-level .pig{height:64px}#game.selection-level .pig-two{height:74px}}
+@media(min-width:700px) and (min-height:701px) and (max-height:850px){#game[data-level="0"] .party-art{height:76px;margin-bottom:12px}#game[data-level="0"] .pig{height:64px}#game[data-level="0"] .pig-two{height:74px}}
 #game[data-level="2"] .choices{grid-template-columns:repeat(3,minmax(0,1fr))}
 #game[data-level="2"] .answer{gap:10px}
 #game[data-level="2"] .answer-slot{width:92px}
