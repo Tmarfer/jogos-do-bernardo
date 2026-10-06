@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fbf7ee">
+  <meta name="description" content="Um jogo de sílabas em português, feito para brincar e aprender com calma.">
+  <title>Sílabas do Bê</title>
+  <link rel="icon" href="assets/porquinho.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <a class="brand" href="./" aria-label="Sílabas do Bê, início">
+        <img src="assets/porquinho.svg" width="48" height="48" alt="">
+        <span>Sílabas <span class="brand-small">do Bê</span></span>
+      </a>
+      <details class="settings">
+        <summary>Opções <span aria-hidden="true">⚙</span></summary>
+        <div class="settings-panel">
+          <label class="setting"><span>Sons suaves</span><input id="sound-toggle" type="checkbox" role="switch"><span class="switch" aria-hidden="true"></span></label>
+          <label class="setting"><span>Animações</span><input id="motion-toggle" type="checkbox" role="switch"><span class="switch" aria-hidden="true"></span></label>
+          <p>Você pode brincar em silêncio.</p>
+        </div>
+      </details>
+    </header>
+
+    <main>
+      <div class="intro"><span class="eyebrow">BRINCAR E APRENDER</span><h1>Junte as sílabas</h1></div>
+      <section class="game-card" aria-label="Jogo de sílabas">
+        <div class="progress-row"><span id="progress-label">PALAVRA 1 DE 5</span><div id="progress-dots" class="progress-dots" aria-hidden="true"></div></div>
+
+        <div id="round">
+          <div class="picture-wrap"><span class="picture-decoration decoration-one" aria-hidden="true">✦</span><img id="picture" class="picture" width="210" height="180" src="assets/bola.svg" alt="Bola colorida"><span class="picture-decoration decoration-two" aria-hidden="true">✦</span></div>
+          <p id="word-model" class="word-model" aria-label="BOLA: BO mais LA"><span>BO</span><span class="model-separator" aria-hidden="true">·</span><span>LA</span></p>
+          <p class="instruction" id="instruction">Toque nas sílabas em ordem.</p>
+          <div id="answer" class="answer" role="group" aria-label="Palavra que você está montando"><span class="answer-slot" aria-label="Primeira sílaba, vazia">?</span><span class="answer-slot" aria-label="Segunda sílaba, vazia">?</span></div>
+          <div id="choices" class="choices" role="group" aria-label="Sílabas para escolher"></div>
+          <div id="celebration" class="celebration" hidden>
+            <div class="party-art" aria-hidden="true"><span class="party-letter letter-one">B</span><span class="party-letter letter-two">Ê</span><img class="pig pig-one" src="assets/porquinho.svg" width="72" height="72" alt=""><img class="pig pig-two" src="assets/porquinho.svg" width="82" height="82" alt=""><img class="pig pig-three" src="assets/porquinho.svg" width="72" height="72" alt=""><span class="party-letter letter-three">A</span><span class="party-letter letter-four">O</span></div>
+            <button id="next-button" class="primary-button" type="button">Próxima palavra <span aria-hidden="true">→</span></button>
+          </div>
+        </div>
+
+        <div id="finish" class="finish" hidden>
+          <div class="finish-pigs" aria-hidden="true"><img src="assets/porquinho.svg" width="80" height="80" alt=""><img src="assets/porquinho.svg" width="100" height="100" alt=""><img src="assets/porquinho.svg" width="80" height="80" alt=""></div>
+          <h2>Você conseguiu!</h2><p>Juntou as 5 palavras.</p><div id="finished-words" class="finished-words" aria-label="Palavras que você montou"></div>
+          <button id="restart-button" class="primary-button" type="button">Brincar de novo <span aria-hidden="true">↻</span></button>
+        </div>
+
+        <p id="feedback" class="feedback" role="status" aria-live="polite" aria-atomic="true">Vamos montar BOLA?</p>
+      </section>
+      <p class="footer-note"><span aria-hidden="true">♡</span> Cada descoberta, uma alegria. No seu tempo.</p>
+      <noscript><p class="noscript">Ative o JavaScript no navegador para brincar.</p></noscript>
+    </main>
+    <footer>Feito para pequenas grandes descobertas.</footer>
+  </div>
+</body>
+</html>
