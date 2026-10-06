@@ -8,12 +8,13 @@
   <title>Sílabas do Bê</title>
   <link rel="icon" href="assets/porquinho.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <script src="words.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
   <div class="page">
     <header class="header">
-      <a class="brand" href="./" aria-label="Sílabas do Bê, início">
+      <a id="home-link" class="brand" href="./" aria-label="Sílabas do Bê, início">
         <img src="assets/porquinho.svg" width="48" height="48" alt="">
         <span>Sílabas <span class="brand-small">do Bê</span></span>
       </a>
@@ -28,13 +29,24 @@
     </header>
 
     <main>
-      <div class="intro"><span class="eyebrow">BRINCAR E APRENDER</span><h1>Junte as sílabas</h1></div>
-      <section class="game-card" aria-label="Jogo de sílabas">
+      <div class="intro"><span class="eyebrow">BRINCAR E APRENDER</span><h1 id="page-title" tabindex="-1">Vamos brincar?</h1></div>
+      <section id="home" class="game-card home-card" aria-label="Escolha de nível">
+        <img class="home-pig" src="assets/porquinho.svg" width="88" height="88" alt="">
+        <p>Escolha um jeito de brincar.</p>
+        <button id="level-zero" class="level-button" type="button"><span class="level-number">Nível 0</span><span>— Juntar sílabas</span></button>
+        <button id="level-one" class="level-button" type="button"><span class="level-number">Nível 1</span><span>— Escolher sílabas</span></button>
+        <p class="home-note">Cinco palavras por vez. Sem pressa.</p>
+      </section>
+      <section id="game" class="game-card" aria-label="Jogo de sílabas" hidden>
+        <div class="game-navigation"><span id="level-label">NÍVEL 0</span><button id="back-button" class="text-button" type="button">← Trocar nível</button></div>
         <div class="progress-row"><span id="progress-label">PALAVRA 1 DE 5</span><div id="progress-dots" class="progress-dots" aria-hidden="true"></div></div>
 
         <div id="round">
           <div class="picture-wrap"><span class="picture-decoration decoration-one" aria-hidden="true">✦</span><img id="picture" class="picture" width="210" height="180" src="assets/bola.svg" alt="Bola colorida"><span class="picture-decoration decoration-two" aria-hidden="true">✦</span></div>
-          <p id="word-model" class="word-model" aria-label="BOLA: BO mais LA"><span>BO</span><span class="model-separator" aria-hidden="true">·</span><span>LA</span></p>
+          <p id="completed-word" class="completed-word" hidden></p>
+          <p id="word-model" class="word-model"></p>
+          <div id="voice-controls" class="voice-controls" hidden><button id="listen-button" class="secondary-button" type="button">Ouvir de novo</button><button id="help-button" class="secondary-button" type="button">Ajuda</button></div>
+          <p id="voice-note" class="voice-note" hidden></p>
           <p class="instruction" id="instruction">Toque nas sílabas em ordem.</p>
           <div id="answer" class="answer" role="group" aria-label="Palavra que você está montando"><span class="answer-slot" aria-label="Primeira sílaba, vazia">?</span><span class="answer-slot" aria-label="Segunda sílaba, vazia">?</span></div>
           <div id="choices" class="choices" role="group" aria-label="Sílabas para escolher"></div>
@@ -47,10 +59,11 @@
         <div id="finish" class="finish" hidden>
           <div class="finish-pigs" aria-hidden="true"><img src="assets/porquinho.svg" width="80" height="80" alt=""><img src="assets/porquinho.svg" width="100" height="100" alt=""><img src="assets/porquinho.svg" width="80" height="80" alt=""></div>
           <h2>Você conseguiu!</h2><p>Juntou as 5 palavras.</p><div id="finished-words" class="finished-words" aria-label="Palavras que você montou"></div>
-          <button id="restart-button" class="primary-button" type="button">Brincar de novo <span aria-hidden="true">↻</span></button>
+          <button id="restart-button" class="primary-button" type="button">Jogar mais <span aria-hidden="true">↻</span></button>
+          <button id="finish-back-button" class="secondary-button finish-back" type="button">Trocar nível</button>
         </div>
 
-        <p id="feedback" class="feedback" role="status" aria-live="polite" aria-atomic="true">Vamos montar BOLA?</p>
+        <p id="feedback" class="feedback" role="status" aria-live="polite" aria-atomic="true"></p>
       </section>
       <p class="footer-note"><span aria-hidden="true">♡</span> Cada descoberta, uma alegria. No seu tempo.</p>
       <noscript><p class="noscript">Ative o JavaScript no navegador para brincar.</p></noscript>

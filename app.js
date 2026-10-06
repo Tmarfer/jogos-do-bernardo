@@ -1,13 +1,7 @@
 (() => {
   'use strict';
 
-  const words = [
-    { word: 'BOLA', syllables: ['BO', 'LA'], image: 'bola', description: 'Bola colorida' },
-    { word: 'CASA', syllables: ['CA', 'SA'], image: 'casa', description: 'Casa com telhado vermelho' },
-    { word: 'GATO', syllables: ['GA', 'TO'], image: 'gato', description: 'Gato laranja' },
-    { word: 'PATO', syllables: ['PA', 'TO'], image: 'pato', description: 'Pato amarelo' },
-    { word: 'SAPO', syllables: ['SA', 'PO'], image: 'sapo', description: 'Sapo verde' },
-  ];
+  const { words, levelZeroIds } = window.SilabasData;
   const byId = (id) => document.getElementById(id);
   const ui = {
     picture: byId('picture'), model: byId('word-model'), choices: byId('choices'),
@@ -15,9 +9,19 @@
     round: byId('round'), finish: byId('finish'), next: byId('next-button'),
     restart: byId('restart-button'), progress: byId('progress-label'), dots: byId('progress-dots'),
     sound: byId('sound-toggle'), motion: byId('motion-toggle'), instruction: byId('instruction'),
+    home: byId('home'), game: byId('game'), title: byId('page-title'), level: byId('level-label'),
+    completed: byId('completed-word'), voiceControls: byId('voice-controls'), voiceNote: byId('voice-note'),
+    listen: byId('listen-button'), help: byId('help-button'),
   };
+  let level = 0;
+  let roundWords = [];
   let index = 0;
   let selected = 0;
+  let roundVersion = 0;
+  let speechVersion = 0;
+  let speechFailed = false;
+  let activeUtterance;
+  const presented = [new Set(), new Set()];
   let audioContext;
   let preferences = { sound: false, motion: !window.matchMedia('(prefers-reduced-motion: reduce)').matches };
 
@@ -38,6 +42,105 @@
     applyPreferences();
     try { localStorage.setItem('silabas-do-be-preferences', JSON.stringify(preferences)); }
     catch { /* Preferences still apply for this session. */ }
+  }
+
+  function shuffle(items) {
+    const result = [...items];
+    for (let i = result.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
+  }
+
+  function wordPool() {
+    return level === 0 ? words.filter((word) => levelZeroIds.includes(word.id)) : words;
+  }
+
+  function startSession(chosenLevel) {
+    cancelSpeech();
+    level = chosenLevel;
+    const pool = wordPool();
+    // Reserve a round, but mark words as presented only when actually shown.
+    roundWords = [
+      ...shuffle(pool.filter((word) => !presented[level].has(word.id))),
+      ...shuffle(pool.filter((word) => presented[level].has(word.id))),
+    ].slice(0, 5);
+    index = 0;
+    ui.home.hidden = true;
+    ui.game.hidden = false;
+    ui.game.dataset.level = String(level);
+    ui.title.textContent = level === 0 ? 'Junte as sílabas' : 'Escolha as sílabas';
+    ui.level.textContent = `NÍVEL ${level}`;
+    document.querySelector('.settings').open = false;
+    renderRound(true);
+  }
+
+  function showHome() {
+    cancelSpeech();
+    roundVersion += 1;
+    ui.home.hidden = false;
+    ui.game.hidden = true;
+    ui.title.textContent = 'Vamos brincar?';
+    document.querySelector('.settings').open = false;
+    byId(level === 0 ? 'level-zero' : 'level-one').focus({ preventScroll: true });
+  }
+
+  function cancelSpeech() {
+    speechVersion += 1;
+    activeUtterance = undefined;
+    try { window.speechSynthesis?.cancel(); } catch { /* Voice is optional. */ }
+  }
+
+  function localPortugueseVoice() {
+    if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) return undefined;
+    try {
+      const local = window.speechSynthesis.getVoices().filter((voice) => voice.localService === true && /^pt(?:[-_]|$)/i.test(voice.lang));
+      return local.find((voice) => /^pt[-_]BR$/i.test(voice.lang)) || local[0];
+    } catch { return undefined; }
+  }
+
+  function updateVoiceNote() {
+    if (level !== 1 || ui.game.hidden) return;
+    if (!preferences.sound) ui.voiceNote.textContent = 'Som desligado. Um adulto pode dizer o nome da figura.';
+    else if (!localPortugueseVoice() || speechFailed) ui.voiceNote.textContent = 'Sem voz disponível. Um adulto pode dizer o nome da figura.';
+    else ui.voiceNote.textContent = 'Quer ouvir a palavra? Toque em Ouvir de novo.';
+  }
+
+  function speak(text) {
+    cancelSpeech();
+    speechFailed = false;
+    const voice = localPortugueseVoice();
+    if (!preferences.sound || !voice) { updateVoiceNote(); return; }
+    const version = speechVersion;
+    try {
+      const utterance = new window.SpeechSynthesisUtterance(text.toLowerCase());
+      utterance.voice = voice;
+      utterance.lang = voice.lang;
+      utterance.rate = 0.82;
+      utterance.pitch = 1.05;
+      utterance.volume = 0.65;
+      utterance.onerror = (event) => {
+        if (version !== speechVersion || event.error === 'canceled' || event.error === 'interrupted') return;
+        speechFailed = true;
+        updateVoiceNote();
+      };
+      utterance.onend = () => { if (version === speechVersion) activeUtterance = undefined; };
+      activeUtterance = utterance; // Retain the utterance while Safari is speaking.
+      // This is synchronous in the level/next/replay/help touch handler: no autoplay timer.
+      window.speechSynthesis.speak(utterance);
+      updateVoiceNote();
+    } catch { speechFailed = true; updateVoiceNote(); }
+  }
+
+  function giveHelp() {
+    if (level !== 1 || selected >= 2 || ui.game.hidden || ui.round.hidden) return;
+    const correct = roundWords[index].syllables[selected];
+    const button = Array.from(ui.choices.children).find((choice) => choice.textContent === correct);
+    button.classList.add('help-highlight');
+    button.setAttribute('aria-label', `Sílaba ${correct}, ajuda`);
+    feedback('Toque na sílaba destacada. Vamos juntos!', 'hint');
+    speak(correct);
   }
 
   // A short, quiet melody generated locally, only after a touch. No recordings or voices.
@@ -73,25 +176,16 @@
   }
 
   function renderProgress(finished = false) {
-    ui.progress.textContent = finished ? '5 PALAVRAS MONTADAS' : `PALAVRA ${index + 1} DE ${words.length}`;
+    ui.progress.textContent = finished ? '5 PALAVRAS MONTADAS' : `PALAVRA ${index + 1} DE 5`;
     ui.dots.replaceChildren();
-    words.forEach((_, position) => {
+    roundWords.forEach((_, position) => {
       const dot = document.createElement('span');
       dot.className = `progress-dot${finished || position < index ? ' done' : position === index ? ' current' : ''}`;
       ui.dots.append(dot);
     });
   }
 
-  function renderRound(moveFocus = false) {
-    selected = 0;
-    const current = words[index];
-    ui.round.hidden = false;
-    ui.finish.hidden = true;
-    ui.celebration.hidden = true;
-    ui.choices.hidden = false;
-    ui.instruction.textContent = 'Toque nas sílabas em ordem.';
-    ui.picture.src = `assets/${current.image}.svg`;
-    ui.picture.alt = current.description;
+  function renderModel(current) {
     ui.model.replaceChildren();
     current.syllables.forEach((syllable, position) => {
       if (position) {
@@ -106,14 +200,14 @@
       ui.model.append(part);
     });
     ui.model.setAttribute('aria-label', `${current.word}: ${current.syllables.join(' mais ')}`);
-    Array.from(ui.answer.children).forEach((slot, position) => {
-      slot.textContent = '?';
-      slot.className = 'answer-slot';
-      slot.setAttribute('aria-label', `${position ? 'Segunda' : 'Primeira'} sílaba, vazia`);
-    });
-    const shuffled = [...current.syllables];
-    // The opening word is shuffled to demonstrate the game; subsequent rounds vary.
-    if (index === 0 || Math.random() < 0.5) shuffled.reverse();
+  }
+
+  function renderChoices(moveFocus) {
+    const current = roundWords[index];
+    const stage = selected;
+    const version = roundVersion;
+    const options = level === 0 ? current.syllables : current.alternatives[stage];
+    const shuffled = shuffle(options);
     ui.choices.replaceChildren();
     shuffled.forEach((syllable) => {
       const button = document.createElement('button');
@@ -121,20 +215,53 @@
       button.className = 'syllable-button';
       button.textContent = syllable;
       button.setAttribute('aria-label', `Sílaba ${syllable}`);
-      button.addEventListener('click', () => choose(syllable, button));
+      button.addEventListener('click', () => choose(syllable, button, stage, version));
       ui.choices.append(button);
     });
-    ui.next.textContent = index === words.length - 1 ? 'Ver minhas palavras →' : 'Próxima palavra →';
-    renderProgress();
-    feedback(`Vamos montar ${current.word}?`);
     if (moveFocus) ui.choices.querySelector('button').focus({ preventScroll: true });
   }
 
-  function choose(syllable, button) {
-    if (selected >= 2 || button.disabled) return;
-    const current = words[index];
+  function renderRound(moveFocus = false) {
+    cancelSpeech();
+    roundVersion += 1;
+    selected = 0;
+    speechFailed = false;
+    const current = roundWords[index];
+    presented[level].add(current.id);
+    if (presented[level].size === wordPool().length) presented[level].clear();
+    ui.round.hidden = false;
+    ui.finish.hidden = true;
+    ui.celebration.hidden = true;
+    ui.choices.hidden = false;
+    ui.completed.hidden = true;
+    ui.completed.textContent = '';
+    ui.voiceControls.hidden = level === 0;
+    ui.voiceNote.hidden = level === 0;
+    ui.help.disabled = false;
+    ui.instruction.textContent = level === 0 ? 'Toque nas sílabas em ordem.' : 'Escolha a primeira sílaba.';
+    ui.picture.src = current.image;
+    ui.picture.alt = level === 0 ? current.description : 'Figura da palavra desta rodada';
+    ui.model.hidden = level === 1;
+    ui.model.replaceChildren();
+    ui.model.removeAttribute('aria-label');
+    if (level === 0) renderModel(current);
+    Array.from(ui.answer.children).forEach((slot, position) => {
+      slot.textContent = '?';
+      slot.className = 'answer-slot';
+      slot.setAttribute('aria-label', `${position ? 'Segunda' : 'Primeira'} sílaba, vazia`);
+    });
+    renderChoices(moveFocus);
+    ui.next.textContent = index === 4 ? 'Ver minhas palavras →' : 'Próxima palavra →';
+    renderProgress();
+    feedback(level === 0 ? `Vamos montar ${current.word}?` : 'Olhe a figura. Vamos juntos!');
+    if (level === 1) speak(current.word);
+  }
+
+  function choose(syllable, button, stage, version) {
+    if (selected >= 2 || button.disabled || ui.game.hidden || ui.round.hidden || version !== roundVersion || (level === 1 && stage !== selected)) return;
+    const current = roundWords[index];
     if (syllable !== current.syllables[selected]) {
-      feedback(selected === 0 ? `Vamos juntos! Comece com ${current.syllables[0]}.` : `Quase lá! Agora toque em ${current.syllables[1]}.`, 'hint');
+      feedback(level === 1 ? 'Vamos tentar outra?' : selected === 0 ? `Vamos juntos! Comece com ${current.syllables[0]}.` : `Quase lá! Agora toque em ${current.syllables[1]}.`, 'hint');
       return;
     }
     const slot = ui.answer.children[selected];
@@ -144,11 +271,27 @@
     button.disabled = true;
     selected += 1;
     if (selected < 2) {
-      feedback(`Isso! Agora toque em ${current.syllables[1]}.`);
-      ui.choices.querySelector('button:not(:disabled)').focus({ preventScroll: true });
+      if (level === 1) {
+        cancelSpeech();
+        ui.instruction.textContent = 'Agora escolha a segunda sílaba.';
+        feedback('Isso! Falta só mais uma sílaba.');
+        renderChoices(true);
+      } else {
+        feedback(`Isso! Agora toque em ${current.syllables[1]}.`);
+        ui.choices.querySelector('button:not(:disabled)').focus({ preventScroll: true });
+      }
       return;
     }
     ui.choices.hidden = true;
+    cancelSpeech();
+    ui.voiceControls.hidden = true;
+    ui.voiceNote.hidden = true;
+    ui.help.disabled = true;
+    ui.completed.textContent = current.word;
+    ui.completed.hidden = false;
+    renderModel(current);
+    ui.model.hidden = false;
+    ui.picture.alt = current.description;
     ui.celebration.hidden = false;
     ui.instruction.textContent = 'Você juntou as sílabas!';
     feedback(`Viva! Você montou ${current.word}!`, 'success');
@@ -157,12 +300,13 @@
   }
 
   function finish() {
+    cancelSpeech();
     ui.round.hidden = true;
     ui.finish.hidden = false;
     renderProgress(true);
     const collection = byId('finished-words');
     collection.replaceChildren();
-    words.forEach(({ word }) => {
+    roundWords.forEach(({ word }) => {
       const label = document.createElement('span');
       label.textContent = word;
       collection.append(label);
@@ -173,16 +317,36 @@
 
   ui.next.addEventListener('click', () => {
     if (selected !== 2) return;
-    if (index === words.length - 1) finish();
+    if (ui.game.hidden || ui.round.hidden) return;
+    if (index === 4) finish();
     else { index += 1; renderRound(true); }
   });
-  ui.restart.addEventListener('click', () => { index = 0; renderRound(true); });
+  ui.restart.addEventListener('click', () => startSession(level));
+  byId('level-zero').addEventListener('click', () => startSession(0));
+  byId('level-one').addEventListener('click', () => startSession(1));
+  byId('back-button').addEventListener('click', showHome);
+  byId('finish-back-button').addEventListener('click', showHome);
+  byId('home-link').addEventListener('click', (event) => { event.preventDefault(); showHome(); });
+  ui.listen.addEventListener('click', () => { if (level === 1 && selected < 2 && !ui.game.hidden && !ui.round.hidden) speak(roundWords[index].word); });
+  ui.help.addEventListener('click', giveHelp);
   ui.sound.addEventListener('change', () => {
     preferences.sound = ui.sound.checked;
+    cancelSpeech();
     if (!preferences.sound && audioContext) void audioContext.suspend().catch(() => {});
     savePreferences();
+    if (level === 1 && !ui.game.hidden && !ui.round.hidden && selected < 2) {
+      if (preferences.sound) speak(roundWords[index].word);
+      else updateVoiceNote();
+    }
   });
   ui.motion.addEventListener('change', () => { preferences.motion = ui.motion.checked; savePreferences(); });
   applyPreferences();
-  renderRound();
+  localPortugueseVoice(); // Let the browser load its installed voices before the first touch.
+  try { window.speechSynthesis?.addEventListener('voiceschanged', updateVoiceNote); } catch { /* No speech support. */ }
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      cancelSpeech();
+      if (audioContext) void audioContext.suspend().catch(() => {});
+    }
+  });
 })();

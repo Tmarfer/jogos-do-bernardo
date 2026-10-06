@@ -7,7 +7,7 @@ const playwright = require('playwright');
 
 const baseURL = process.env.TEST_URL || 'http://127.0.0.1:8000';
 const engine = process.env.TEST_BROWSER || 'chromium';
-const wordList = [['BOLA', 'BO', 'LA'], ['CASA', 'CA', 'SA'], ['GATO', 'GA', 'TO'], ['PATO', 'PA', 'TO'], ['SAPO', 'SA', 'PO']];
+const { words, levelZeroIds } = require('../words.js');
 let browser;
 
 before(async () => {
@@ -34,6 +34,11 @@ async function checkImages(page) {
   assert.equal(await page.locator('#picture').evaluate((image) => image.complete && image.naturalWidth > 0), true);
 }
 
+async function currentWord(page) {
+  const src = await page.locator('#picture').getAttribute('src');
+  return words.find((word) => word.image === src);
+}
+
 async function screenshot(page, name) {
   if (!process.env.SCREENSHOT_DIR) return;
   await mkdir(process.env.SCREENSHOT_DIR, { recursive: true });
@@ -45,18 +50,24 @@ for (const [name, viewport] of [['ipad-retrato', { width: 768, height: 1024 }], 
     const { context, page, errors, remoteRequests } = await newGame({ viewport });
     try {
       assert.equal(await page.title(), 'Sílabas do Bê');
+      assert.equal(await page.locator('#home').isVisible(), true);
+      await page.locator('#level-zero').tap();
       assert.equal(await page.locator('#sound-toggle').isChecked(), false);
-      assert.deepEqual(await page.locator('.syllable-button').allTextContents(), ['LA', 'BO']);
+      const initial = await currentWord(page);
+      assert.deepEqual((await page.locator('.syllable-button').allTextContents()).sort(), [...initial.syllables].sort());
       const sizes = await page.locator('.syllable-button').evaluateAll((buttons) => buttons.map((button) => ({ width: button.offsetWidth, height: button.offsetHeight })));
       assert.ok(sizes.every(({ width, height }) => width >= 80 && height >= 80));
       await screenshot(page, name);
-      await page.getByRole('button', { name: 'Sílaba LA', exact: true }).tap();
-      assert.match(await page.locator('#feedback').textContent(), /Comece com BO/);
+      await page.getByRole('button', { name: `Sílaba ${initial.syllables[1]}`, exact: true }).tap();
+      assert.ok((await page.locator('#feedback').textContent()).includes(`Comece com ${initial.syllables[0]}`));
       assert.deepEqual(await page.locator('.answer-slot').allTextContents(), ['?', '?']);
       assert.match(await page.locator('#progress-label').textContent(), /1 DE 5/);
 
-      for (let i = 0; i < wordList.length; i++) {
-        const [word, first, second] = wordList[i];
+      const completed = [];
+      for (let i = 0; i < 5; i++) {
+        const { word, id, syllables: [first, second] } = await currentWord(page);
+        assert.ok(levelZeroIds.includes(id));
+        completed.push(word);
         await checkImages(page);
         assert.equal(await page.locator('#word-model').getAttribute('aria-label'), `${word}: ${first} mais ${second}`);
         await page.getByRole('button', { name: `Sílaba ${first}`, exact: true }).tap();
@@ -84,7 +95,8 @@ for (const [name, viewport] of [['ipad-retrato', { width: 768, height: 1024 }], 
         if (i < 4) assert.match(await page.locator('#progress-label').textContent(), new RegExp(`${i + 2} DE 5`));
       }
       assert.equal(await page.locator('#finish').isVisible(), true);
-      assert.deepEqual(await page.locator('#finished-words span').allTextContents(), wordList.map(([word]) => word));
+      assert.deepEqual(await page.locator('#finished-words span').allTextContents(), completed);
+      assert.equal(new Set(completed).size, 5);
       assert.equal(await page.locator('.progress-dot.done').count(), 5);
       await page.locator('#restart-button').tap();
       assert.match(await page.locator('#progress-label').textContent(), /1 DE 5/);
@@ -113,16 +125,17 @@ test('Sons opcionais, desligamento de animações e preferências após recarreg
     }
   });
   try {
-    await page.getByRole('button', { name: 'Sílaba BO', exact: true }).tap();
-    await page.getByRole('button', { name: 'Sílaba LA', exact: true }).tap();
+    await page.locator('#level-zero').tap();
+    const first = await currentWord(page);
+    for (const syllable of first.syllables) await page.getByRole('button', { name: `Sílaba ${syllable}`, exact: true }).tap();
     assert.equal(await page.evaluate(() => window.__notes), 0);
     await page.locator('summary').tap();
     await page.locator('#sound-toggle').check();
     await page.locator('#motion-toggle').uncheck();
     await page.locator('summary').tap();
     await page.locator('#next-button').tap();
-    await page.getByRole('button', { name: 'Sílaba CA', exact: true }).tap();
-    await page.getByRole('button', { name: 'Sílaba SA', exact: true }).tap();
+    const second = await currentWord(page);
+    for (const syllable of second.syllables) await page.getByRole('button', { name: `Sílaba ${syllable}`, exact: true }).tap();
     await page.waitForFunction(() => window.__notes === 3);
     assert.equal(await page.locator('.pig').first().evaluate((pig) => getComputedStyle(pig).animationName), 'none');
     await page.locator('summary').tap();
@@ -145,12 +158,14 @@ test('Movimento reduzido, armazenamento indisponível e navegação por teclado'
   });
   try {
     assert.equal(await page.locator('#motion-toggle').isChecked(), false);
+    await page.locator('#level-zero').tap();
+    const current = await currentWord(page);
     await page.locator('summary').click();
     await page.locator('#sound-toggle').check();
     await page.locator('summary').click();
-    await page.getByRole('button', { name: 'Sílaba BO', exact: true }).focus();
+    await page.getByRole('button', { name: `Sílaba ${current.syllables[0]}`, exact: true }).focus();
     await page.keyboard.press('Enter');
-    assert.equal(await page.evaluate(() => document.activeElement.textContent), 'LA');
+    assert.equal(await page.evaluate(() => document.activeElement.textContent), current.syllables[1]);
     await page.keyboard.press('Space');
     assert.match(await page.locator('#feedback').textContent(), /Viva!/);
     assert.equal(await page.locator('.pig').first().evaluate((pig) => getComputedStyle(pig).animationName), 'none');
