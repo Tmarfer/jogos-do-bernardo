@@ -177,10 +177,10 @@ test('Voz e ajuda nas três etapas, teclado, som desligado e movimento reduzido'
     await page.keyboard.press('Enter');
     const word = await wordAt(page);
     assert.equal(await page.evaluate(() => window.__spoken.at(-1).text), word.word.toLowerCase());
-    for (const syllable of word.syllables) {
+    for (const [stage, syllable] of word.syllables.entries()) {
       await page.locator('#help-button').focus();
       await page.keyboard.press('Space');
-      assert.equal(await page.evaluate(() => window.__spoken.at(-1).text), syllable.toLowerCase());
+      assert.equal(await page.evaluate(() => window.__spoken.at(-1).text), `${word.spokenSyllables[stage]}.`);
       await choice(page, syllable).focus();
       await page.keyboard.press('Enter');
     }

@@ -69,6 +69,20 @@
     words.push({ id, word, syllables, image: `assets/${id}.svg`, description, levels: membership, alternatives: syllables.map((syllable) => alternativesFor(syllable, membership.includes(2) ? 6 : 4)) });
   });
 
+  // Speech-only spelling: accents make short syllables pronounceable rather than acronyms.
+  // Written words/choices stay unchanged. Override open E/O sounds in their word context.
+  const speechVowels = { A: 'á', E: 'ê', I: 'í', O: 'ô', U: 'ú' };
+  const openVowels = {
+    bola: { 0: 'bó' }, moto: { 0: 'mó' }, bota: { 0: 'bó' }, foca: { 0: 'fó' },
+    rosa: { 0: 'ró' }, roda: { 0: 'ró' }, rede: { 0: 'ré' }, panela: { 1: 'né' }, caneta: { 1: 'né' },
+    boneca: { 1: 'né' }, janela: { 1: 'né' }, pipoca: { 1: 'pó' },
+    peteca: { 1: 'té' }, cebola: { 1: 'bó' },
+  };
+  words.forEach((word) => {
+    word.spokenSyllables = word.syllables.map((syllable, stage) =>
+      openVowels[word.id]?.[stage] || syllable[0].toLowerCase() + speechVowels[syllable[1]]);
+  });
+
   function validateWords(bank) {
     const ids = new Set();
     const names = new Set();
@@ -77,6 +91,8 @@
       if (!Array.isArray(item.levels) || !item.levels.length || new Set(item.levels).size !== item.levels.length || item.levels.some((id) => !levels.some((level) => level.id === id))) throw new Error(`Níveis inválidos: ${item.id}`);
       if (!/^[A-Z]+$/.test(item.word) || item.levels.some((id) => item.syllables.length !== levels[id].syllableCount) || item.syllables.join('') !== item.word) throw new Error(`Divisão inválida: ${item.id}`);
       if (item.image !== `assets/${item.id}.svg` || !item.description || item.alternatives.length !== item.syllables.length) throw new Error(`Figura ou etapas inválidas: ${item.id}`);
+      if (!Array.isArray(item.spokenSyllables) || item.spokenSyllables.length !== item.syllables.length || item.spokenSyllables.some((spoken, stage) =>
+        typeof spoken !== 'string' || !/^[bcdfgjlmnprstv][áéêíóôú]$/.test(spoken) || spoken.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase() !== item.syllables[stage])) throw new Error(`Pronúncia inválida: ${item.id}`);
       item.alternatives.forEach((options, stage) => {
         const correct = item.syllables[stage];
         const count = item.levels.includes(2) ? 6 : 4;

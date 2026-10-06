@@ -219,17 +219,18 @@ for (const [level, seed, repeatedWord] of [[1, 1, 'COCO'], [2, 8520, 'BANANA']])
       const cancels = await page.evaluate(() => window.__cancels);
       await page.locator('#listen-button').tap();
       const split = await page.evaluate((start) => window.__spoken.slice(start), before);
-      assert.deepEqual(split.map((part) => part.text), word.syllables.map((part) => `${part.toLowerCase()}.`));
+      assert.deepEqual(split.map((part) => part.text), [`${word.spokenSyllables.join(', ')}.`]);
+      assert.equal(split[0].text, level === 1 ? 'cô, cô.' : 'bá, ná, ná.');
       assert.ok(split.every((part) => part.rate < 0.82 && part.gesture && part.local && part.lang === 'pt-BR'));
       assert.ok(await page.evaluate(() => window.__cancels) > cancels);
       assert.deepEqual(await page.locator('.answer-slot').allTextContents(), word.syllables.map(() => '?'));
       await noReveal(page, word);
-      // Finishing a syllable must not enqueue anything outside the original gesture.
-      await page.evaluate(() => window.__utterances.at(-2).onend());
-      assert.equal(await page.evaluate(() => window.__spoken.length), before + word.syllables.length);
+      // Finishing the phrase must not start another utterance outside the original gesture.
+      await page.evaluate(() => window.__utterances.at(-1).onend());
+      assert.equal(await page.evaluate(() => window.__spoken.length), before + 1);
       await page.locator('#listen-button').tap();
       assert.equal(await page.evaluate(() => window.__spoken.at(-1).text), word.word.toLowerCase());
-      // Late events from a canceled queue cannot replace the current playback/fallback.
+      // Late events from canceled speech cannot replace the current playback/fallback.
       await page.evaluate(() => window.__utterances.at(-2).onerror({ error: 'synthesis-failed' }));
       assert.doesNotMatch(await page.locator('#voice-note').textContent(), /Sem voz/);
       await page.locator('summary').tap();
@@ -242,14 +243,14 @@ for (const [level, seed, repeatedWord] of [[1, 1, 'COCO'], [2, 8520, 'BANANA']])
       await page.locator('#sound-toggle').check();
       await page.locator('summary').tap();
       await page.locator('#listen-button').tap();
-      assert.deepEqual(await page.evaluate((length) => window.__spoken.slice(-length).map((part) => part.text), word.syllables.length), word.syllables.map((part) => `${part.toLowerCase()}.`));
+      assert.equal(await page.evaluate(() => window.__spoken.at(-1).text), `${word.spokenSyllables.join(', ')}.`);
       await complete(page);
       await page.locator('#next-button').tap();
       const nextWord = await current(page);
       await page.locator('#listen-button').tap();
       assert.equal(await page.evaluate(() => window.__spoken.at(-1).text), nextWord.word.toLowerCase());
       await page.locator('#listen-button').tap();
-      assert.deepEqual(await page.evaluate((length) => window.__spoken.slice(-length).map((part) => part.text), nextWord.syllables.length), nextWord.syllables.map((part) => `${part.toLowerCase()}.`));
+      assert.equal(await page.evaluate(() => window.__spoken.at(-1).text), `${nextWord.spokenSyllables.join(', ')}.`);
       await page.locator('#back-button').tap();
       await page.locator(level === 1 ? '#level-two' : '#level-one').tap();
       const otherWord = await current(page);
@@ -279,10 +280,10 @@ test('Voz local em português: início, replay, ajuda, erros e cancelamento ao d
     await choice(page, wrong).tap();
     assert.equal(await page.evaluate(() => window.__spoken.length), 2);
     await page.locator('#help-button').tap();
-    assert.equal(await page.evaluate(() => window.__spoken.at(-1).text), word.syllables[0].toLowerCase());
+    assert.equal(await page.evaluate(() => window.__spoken.at(-1).text), `${word.spokenSyllables[0]}.`);
     await choice(page, word.syllables[0]).tap();
     await page.locator('#help-button').tap();
-    assert.equal(await page.evaluate(() => window.__spoken.at(-1).text), word.syllables[1].toLowerCase());
+    assert.equal(await page.evaluate(() => window.__spoken.at(-1).text), `${word.spokenSyllables[1]}.`);
     await choice(page, word.syllables[1]).tap();
     await page.locator('#next-button').tap();
     const nextWord = await current(page);

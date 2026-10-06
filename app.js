@@ -21,7 +21,7 @@
   let roundVersion = 0;
   let speechVersion = 0;
   let speechFailed = false;
-  let activeUtterances = [];
+  let activeUtterance;
   let replaySyllables = false;
   const presented = levels.map(() => new Set());
   let audioContext;
@@ -91,7 +91,7 @@
 
   function cancelSpeech() {
     speechVersion += 1;
-    activeUtterances = [];
+    activeUtterance = undefined;
     try { window.speechSynthesis?.cancel(); } catch { /* Voice is optional. */ }
   }
 
@@ -110,36 +110,31 @@
     else ui.voiceNote.textContent = replaySyllables ? 'Toque de novo para ouvir as sílabas separadas.' : 'Toque em Ouvir de novo para ouvir a palavra inteira.';
   }
 
-  function speak(text, separateSyllables = false) {
+  function speak(text, articulateSyllables = false) {
     cancelSpeech();
     speechFailed = false;
     const voice = localPortugueseVoice();
     if (!preferences.sound || !voice) { updateVoiceNote(); return false; }
     const version = speechVersion;
     try {
-      const parts = separateSyllables ? text : [text];
-      // Separate utterances and full stops create syllable boundaries without reading a hyphen.
-      activeUtterances = parts.map((part) => {
-        const utterance = new window.SpeechSynthesisUtterance(`${part.toLowerCase()}${separateSyllables ? '.' : ''}`);
-        utterance.voice = voice;
-        utterance.lang = voice.lang;
-        utterance.rate = separateSyllables ? 0.65 : 0.82;
-        utterance.pitch = 1.05;
-        utterance.volume = 0.65;
-        utterance.onerror = (event) => {
-          if (version !== speechVersion || event.error === 'canceled' || event.error === 'interrupted') return;
-          cancelSpeech();
-          speechFailed = true;
-          updateVoiceNote();
-        };
-        utterance.onend = () => {
-          if (version === speechVersion) activeUtterances = activeUtterances.filter((active) => active !== utterance);
-        };
-        return utterance;
-      });
-      // Retain every utterance for Safari and queue all parts directly during the touch.
-      // No timers or callback-triggered speech: the user gesture authorizes the whole sequence.
-      for (const utterance of activeUtterances) window.speechSynthesis.speak(utterance);
+      // Accented syllables in one phrase avoid abbreviation/letter-name heuristics.
+      // Commas provide pauses without sending a series of isolated two-letter utterances.
+      const utterance = new window.SpeechSynthesisUtterance(`${text.toLowerCase()}${articulateSyllables ? '.' : ''}`);
+      utterance.voice = voice;
+      utterance.lang = voice.lang;
+      utterance.rate = articulateSyllables ? 0.72 : 0.82;
+      utterance.pitch = 1;
+      utterance.volume = 0.65;
+      utterance.onerror = (event) => {
+        if (version !== speechVersion || event.error === 'canceled' || event.error === 'interrupted') return;
+        cancelSpeech();
+        speechFailed = true;
+        updateVoiceNote();
+      };
+      utterance.onend = () => { if (version === speechVersion) activeUtterance = undefined; };
+      activeUtterance = utterance; // Retain the utterance while Safari is speaking.
+      // One synchronous call during the touch, without timers or callback-triggered speech.
+      window.speechSynthesis.speak(utterance);
       updateVoiceNote();
       return true;
     } catch { cancelSpeech(); speechFailed = true; updateVoiceNote(); return false; }
@@ -152,7 +147,7 @@
     button.classList.add('help-highlight');
     button.setAttribute('aria-label', `Sílaba ${correct}, ajuda`);
     feedback('Toque na sílaba destacada. Vamos juntos!', 'hint');
-    speak(correct);
+    speak(roundWords[index].spokenSyllables[selected], true);
   }
 
   // A short, quiet melody generated locally, only after a touch. No recordings or voices.
@@ -346,7 +341,7 @@
     if (level === 0 || ui.game.hidden || ui.round.hidden) return;
     const current = roundWords[index];
     if (selected >= current.syllables.length) return;
-    if (speak(replaySyllables ? current.syllables : current.word, replaySyllables)) {
+    if (speak(replaySyllables ? current.spokenSyllables.join(', ') : current.word, replaySyllables)) {
       replaySyllables = !replaySyllables;
       updateVoiceNote();
     }

@@ -45,8 +45,33 @@ test('105 etapas: quatro ou seis alternativas distintas e uma única resposta', 
   });
 });
 
-test('Validação rejeita alternativas repetidas, letras isoladas e divisões erradas', () => {
+test('Pronúncia tem 105 sílabas inteiras, com acentos só na fala e vogais abertas no contexto', () => {
+  const expectedSpeech = {
+    BANANA: ['bá', 'ná', 'ná'], VACA: ['vá', 'cá'], COCO: ['cô', 'cô'],
+    BOLA: ['bó', 'lá'], BOCA: ['bô', 'cá'], CEBOLA: ['cê', 'bó', 'lá'],
+    BONECA: ['bô', 'né', 'cá'], FOGO: ['fô', 'gô'], FOCA: ['fó', 'cá'],
+    PIPA: ['pí', 'pá'], SUCO: ['sú', 'cô'], GIRAFA: ['gí', 'rá', 'fá'],
+    REDE: ['ré', 'dê'], PENA: ['pê', 'ná'],
+  };
+  for (const [name, syllables] of Object.entries(expectedSpeech)) {
+    assert.deepEqual(words.find((word) => word.word === name).spokenSyllables, syllables);
+  }
+  for (const word of words) {
+    assert.equal(word.spokenSyllables.length, word.syllables.length);
+    word.spokenSyllables.forEach((spoken, stage) => {
+      assert.match(spoken, /^[bcdfgjlmnprstv][áéêíóôú]$/);
+      assert.equal(spoken.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase(), expected[word.word][stage]);
+    });
+    assert.equal(word.word, expected[word.word].join(''), 'A grafia da palavra não recebe os acentos da fala');
+  }
+});
+
+test('Validação rejeita alternativas repetidas, letras isoladas, divisões e pronúncias erradas', () => {
   for (const mutate of [
+    (bank) => { bank[0].spokenSyllables = ['b', 'o']; },
+    (bank) => { bank[0].spokenSyllables = ['ba', 'la']; },
+    (bank) => { bank[0].spokenSyllables = ['bó']; },
+    (bank) => { bank[0].spokenSyllables = ['bó', 'má']; },
     (bank) => { bank[0].alternatives[0] = ['BO', 'BO', 'BE', 'BI']; },
     (bank) => { bank[0].alternatives[0] = ['BA', 'BU', 'BE', 'BI']; },
     (bank) => { bank[0].alternatives[0] = ['BO', 'B', 'BE', 'BI']; },
