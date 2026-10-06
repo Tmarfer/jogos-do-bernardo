@@ -50,7 +50,7 @@ async function shot(page, name) {
   await page.screenshot({ path: join(process.env.SCREENSHOT_DIR, `${name}.png`), fullPage: true });
 }
 
-test('20 palavras, 40 etapas, erros, ajuda e COCO sem repetição nas quatro rodadas', async () => {
+test('30 palavras, 60 etapas, erros, ajuda e COCO sem repetição nas seis rodadas', async () => {
   const { page, context, errors, remote } = await game({}, () => {
     let seed = 725;
     Math.random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
@@ -58,11 +58,12 @@ test('20 palavras, 40 etapas, erros, ajuda e COCO sem repetição nas quatro rod
   try {
     await page.locator('#level-one').tap();
     const seen = new Set();
-    for (let session = 0; session < 4; session++) {
+    for (let session = 0; session < 6; session++) {
       const sessionWords = [];
       for (let round = 0; round < 5; round++) {
         const word = await current(page);
-        assert.ok(!seen.has(word.id), 'As 20 palavras devem aparecer antes de repetir');
+        assert.ok(!seen.has(word.id), 'As 30 palavras devem aparecer antes de repetir');
+        assert.ok(word.levels.includes(1));
         seen.add(word.id);
         sessionWords.push(word.word);
         assert.match(await page.locator('#progress-label').textContent(), new RegExp(`${round + 1} DE 5`));
@@ -113,9 +114,9 @@ test('20 palavras, 40 etapas, erros, ajuda e COCO sem repetição nas quatro rod
       assert.equal(new Set(sessionWords).size, 5);
       assert.deepEqual(await page.locator('#finished-words span').allTextContents(), sessionWords);
       assert.equal(await page.locator('#finish-back-button').isVisible(), true);
-      if (session < 3) await page.locator('#restart-button').tap();
+      if (session < 5) await page.locator('#restart-button').tap();
     }
-    assert.equal(seen.size, 20);
+    assert.equal(seen.size, 30);
     await page.locator('#restart-button').tap();
     assert.equal(await page.locator('#round').isVisible(), true);
     assert.deepEqual(errors, []);
@@ -154,7 +155,7 @@ test('Palavras não mostradas têm prioridade mesmo ao interromper e trocar de n
   const { page, context, errors } = await game();
   try {
     const seen = new Set();
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 30; i++) {
       await page.locator('#level-one').tap();
       const word = await current(page);
       assert.ok(!seen.has(word.id));
@@ -165,7 +166,7 @@ test('Palavras não mostradas têm prioridade mesmo ao interromper e trocar de n
         await page.locator('#back-button').tap();
       }
     }
-    assert.equal(seen.size, 20);
+    assert.equal(seen.size, 30);
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
 });

@@ -1,7 +1,8 @@
 (() => {
   'use strict';
 
-  const { words, levelZeroIds } = window.SilabasData;
+  const { words, levels } = window.SilabasData;
+  const ordinals = ['Primeira', 'Segunda', 'Terceira'];
   const byId = (id) => document.getElementById(id);
   const ui = {
     picture: byId('picture'), model: byId('word-model'), choices: byId('choices'),
@@ -21,7 +22,7 @@
   let speechVersion = 0;
   let speechFailed = false;
   let activeUtterance;
-  const presented = [new Set(), new Set()];
+  const presented = levels.map(() => new Set());
   let audioContext;
   let preferences = { sound: false, motion: !window.matchMedia('(prefers-reduced-motion: reduce)').matches };
 
@@ -54,7 +55,7 @@
   }
 
   function wordPool() {
-    return level === 0 ? words.filter((word) => levelZeroIds.includes(word.id)) : words;
+    return words.filter((word) => word.levels.includes(level));
   }
 
   function startSession(chosenLevel) {
@@ -70,7 +71,8 @@
     ui.home.hidden = true;
     ui.game.hidden = false;
     ui.game.dataset.level = String(level);
-    ui.title.textContent = level === 0 ? 'Junte as sílabas' : 'Escolha as sílabas';
+    ui.game.classList.toggle('selection-level', level > 0);
+    ui.title.textContent = levels[level].title;
     ui.level.textContent = `NÍVEL ${level}`;
     document.querySelector('.settings').open = false;
     renderRound(true);
@@ -83,7 +85,7 @@
     ui.game.hidden = true;
     ui.title.textContent = 'Vamos brincar?';
     document.querySelector('.settings').open = false;
-    byId(level === 0 ? 'level-zero' : 'level-one').focus({ preventScroll: true });
+    byId(levels[level].buttonId).focus({ preventScroll: true });
   }
 
   function cancelSpeech() {
@@ -101,7 +103,7 @@
   }
 
   function updateVoiceNote() {
-    if (level !== 1 || ui.game.hidden) return;
+    if (level === 0 || ui.game.hidden) return;
     if (!preferences.sound) ui.voiceNote.textContent = 'Som desligado. Um adulto pode dizer o nome da figura.';
     else if (!localPortugueseVoice() || speechFailed) ui.voiceNote.textContent = 'Sem voz disponível. Um adulto pode dizer o nome da figura.';
     else ui.voiceNote.textContent = 'Quer ouvir a palavra? Toque em Ouvir de novo.';
@@ -134,7 +136,7 @@
   }
 
   function giveHelp() {
-    if (level !== 1 || selected >= 2 || ui.game.hidden || ui.round.hidden) return;
+    if (level === 0 || selected >= roundWords[index].syllables.length || ui.game.hidden || ui.round.hidden) return;
     const correct = roundWords[index].syllables[selected];
     const button = Array.from(ui.choices.children).find((choice) => choice.textContent === correct);
     button.classList.add('help-highlight');
@@ -241,40 +243,43 @@
     ui.instruction.textContent = level === 0 ? 'Toque nas sílabas em ordem.' : 'Escolha a primeira sílaba.';
     ui.picture.src = current.image;
     ui.picture.alt = level === 0 ? current.description : 'Figura da palavra desta rodada';
-    ui.model.hidden = level === 1;
+    ui.model.hidden = level > 0;
     ui.model.replaceChildren();
     ui.model.removeAttribute('aria-label');
     if (level === 0) renderModel(current);
-    Array.from(ui.answer.children).forEach((slot, position) => {
+    ui.answer.replaceChildren();
+    current.syllables.forEach((_, position) => {
+      const slot = document.createElement('span');
       slot.textContent = '?';
       slot.className = 'answer-slot';
-      slot.setAttribute('aria-label', `${position ? 'Segunda' : 'Primeira'} sílaba, vazia`);
+      slot.setAttribute('aria-label', `${ordinals[position]} sílaba, vazia`);
+      ui.answer.append(slot);
     });
     renderChoices(moveFocus);
     ui.next.textContent = index === 4 ? 'Ver minhas palavras →' : 'Próxima palavra →';
     renderProgress();
     feedback(level === 0 ? `Vamos montar ${current.word}?` : 'Olhe a figura. Vamos juntos!');
-    if (level === 1) speak(current.word);
+    if (level > 0) speak(current.word);
   }
 
   function choose(syllable, button, stage, version) {
-    if (selected >= 2 || button.disabled || ui.game.hidden || ui.round.hidden || version !== roundVersion || (level === 1 && stage !== selected)) return;
     const current = roundWords[index];
+    if (selected >= current.syllables.length || button.disabled || ui.game.hidden || ui.round.hidden || version !== roundVersion || (level > 0 && stage !== selected)) return;
     if (syllable !== current.syllables[selected]) {
-      feedback(level === 1 ? 'Vamos tentar outra?' : selected === 0 ? `Vamos juntos! Comece com ${current.syllables[0]}.` : `Quase lá! Agora toque em ${current.syllables[1]}.`, 'hint');
+      feedback(level > 0 ? 'Vamos tentar outra?' : selected === 0 ? `Vamos juntos! Comece com ${current.syllables[0]}.` : `Quase lá! Agora toque em ${current.syllables[1]}.`, 'hint');
       return;
     }
     const slot = ui.answer.children[selected];
     slot.textContent = syllable;
     slot.classList.add('filled');
-    slot.setAttribute('aria-label', `${selected ? 'Segunda' : 'Primeira'} sílaba: ${syllable}`);
+    slot.setAttribute('aria-label', `${ordinals[selected]} sílaba: ${syllable}`);
     button.disabled = true;
     selected += 1;
-    if (selected < 2) {
-      if (level === 1) {
+    if (selected < current.syllables.length) {
+      if (level > 0) {
         cancelSpeech();
-        ui.instruction.textContent = 'Agora escolha a segunda sílaba.';
-        feedback('Isso! Falta só mais uma sílaba.');
+        ui.instruction.textContent = `Agora escolha a ${ordinals[selected].toLowerCase()} sílaba.`;
+        feedback(selected === current.syllables.length - 1 ? 'Isso! Falta só mais uma sílaba.' : 'Isso! Continue assim.');
         renderChoices(true);
       } else {
         feedback(`Isso! Agora toque em ${current.syllables[1]}.`);
@@ -316,25 +321,24 @@
   }
 
   ui.next.addEventListener('click', () => {
-    if (selected !== 2) return;
+    if (!roundWords.length || selected !== roundWords[index].syllables.length) return;
     if (ui.game.hidden || ui.round.hidden) return;
     if (index === 4) finish();
     else { index += 1; renderRound(true); }
   });
   ui.restart.addEventListener('click', () => startSession(level));
-  byId('level-zero').addEventListener('click', () => startSession(0));
-  byId('level-one').addEventListener('click', () => startSession(1));
+  levels.forEach((config) => byId(config.buttonId).addEventListener('click', () => startSession(config.id)));
   byId('back-button').addEventListener('click', showHome);
   byId('finish-back-button').addEventListener('click', showHome);
   byId('home-link').addEventListener('click', (event) => { event.preventDefault(); showHome(); });
-  ui.listen.addEventListener('click', () => { if (level === 1 && selected < 2 && !ui.game.hidden && !ui.round.hidden) speak(roundWords[index].word); });
+  ui.listen.addEventListener('click', () => { if (level > 0 && selected < roundWords[index].syllables.length && !ui.game.hidden && !ui.round.hidden) speak(roundWords[index].word); });
   ui.help.addEventListener('click', giveHelp);
   ui.sound.addEventListener('change', () => {
     preferences.sound = ui.sound.checked;
     cancelSpeech();
     if (!preferences.sound && audioContext) void audioContext.suspend().catch(() => {});
     savePreferences();
-    if (level === 1 && !ui.game.hidden && !ui.round.hidden && selected < 2) {
+    if (level > 0 && !ui.game.hidden && !ui.round.hidden && selected < roundWords[index].syllables.length) {
       if (preferences.sound) speak(roundWords[index].word);
       else updateVoiceNote();
     }

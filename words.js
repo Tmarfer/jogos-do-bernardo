@@ -1,4 +1,4 @@
-// Add words here. Each stage has four complete syllables, including one correct answer.
+// Add words here. Each stage has complete syllables and exactly one correct answer.
 (function (root) {
   'use strict';
   const words = [
@@ -24,26 +24,73 @@
     { id: 'rato', word: 'RATO', syllables: ['RA', 'TO'], image: 'assets/rato.svg', description: 'Rato cinza com orelhas redondas', alternatives: [['RA', 'RE', 'RI', 'RO'], ['TA', 'TE', 'TI', 'TO']] },
   ];
 
+  const levels = [
+    { id: 0, title: 'Junte as sílabas', buttonId: 'level-zero', syllableCount: 2, choiceCount: 2 },
+    { id: 1, title: 'Escolha as sílabas', buttonId: 'level-one', syllableCount: 2, choiceCount: 4 },
+    { id: 2, title: 'Palavras maiores', buttonId: 'level-two', syllableCount: 3, choiceCount: 6 },
+  ];
+  words.forEach((word) => { word.levels = [0, 1]; });
+
+  function alternativesFor(syllable, count) {
+    const family = ['A', 'E', 'I', 'O', 'U'].map((vowel) => syllable[0] + vowel);
+    if (count === 4) return [syllable, ...family.filter((option) => option !== syllable)].slice(0, 4);
+    const neighbor = { B: 'P', C: 'G', D: 'T', F: 'V', G: 'C', J: 'G', L: 'R', M: 'N', N: 'M', P: 'B', R: 'L', S: 'T', T: 'D', V: 'F' };
+    return [...family, neighbor[syllable[0]] + syllable[1]];
+  }
+
+  const newWords = [
+    ['foca', 'FOCA', ['FO', 'CA'], 'Foca cinza com nadadeiras', [1]],
+    ['lobo', 'LOBO', ['LO', 'BO'], 'Lobo cinza amigável', [1]],
+    ['luva', 'LUVA', ['LU', 'VA'], 'Luva de lã', [1]],
+    ['pena', 'PENA', ['PE', 'NA'], 'Pena colorida', [1]],
+    ['sino', 'SINO', ['SI', 'NO'], 'Sino dourado', [1]],
+    ['nave', 'NAVE', ['NA', 'VE'], 'Nave espacial com uma janela', [1]],
+    ['rede', 'REDE', ['RE', 'DE'], 'Rede de descanso', [1]],
+    ['rosa', 'ROSA', ['RO', 'SA'], 'Rosa com caule e folhas', [1]],
+    ['roda', 'RODA', ['RO', 'DA'], 'Roda com raios', [1]],
+    ['fogo', 'FOGO', ['FO', 'GO'], 'Chama de fogo ilustrada', [1]],
+    ['banana', 'BANANA', ['BA', 'NA', 'NA'], 'Banana amarela descascada', [2]],
+    ['batata', 'BATATA', ['BA', 'TA', 'TA'], 'Batatas marrons', [2]],
+    ['tomate', 'TOMATE', ['TO', 'MA', 'TE'], 'Tomate vermelho', [2]],
+    ['panela', 'PANELA', ['PA', 'NE', 'LA'], 'Panela com tampa e duas alças', [2]],
+    ['caneta', 'CANETA', ['CA', 'NE', 'TA'], 'Caneta com tampa', [2]],
+    ['cavalo', 'CAVALO', ['CA', 'VA', 'LO'], 'Cavalo marrom com crina', [2]],
+    ['boneca', 'BONECA', ['BO', 'NE', 'CA'], 'Boneca de pano com vestido', [2]],
+    ['janela', 'JANELA', ['JA', 'NE', 'LA'], 'Janela com cortinas', [2]],
+    ['sapato', 'SAPATO', ['SA', 'PA', 'TO'], 'Sapato com cadarço', [2]],
+    ['macaco', 'MACACO', ['MA', 'CA', 'CO'], 'Macaco marrom com orelhas redondas', [2]],
+    ['pipoca', 'PIPOCA', ['PI', 'PO', 'CA'], 'Pipocas em um potinho listrado', [2]],
+    ['peteca', 'PETECA', ['PE', 'TE', 'CA'], 'Peteca com penas coloridas', [2]],
+    ['cebola', 'CEBOLA', ['CE', 'BO', 'LA'], 'Cebola com casca e raízes', [2]],
+    ['girafa', 'GIRAFA', ['GI', 'RA', 'FA'], 'Girafa amarela com pescoço comprido', [2]],
+    ['camisa', 'CAMISA', ['CA', 'MI', 'SA'], 'Camisa com gola e botões', [2]],
+  ];
+  newWords.forEach(([id, word, syllables, description, membership]) => {
+    words.push({ id, word, syllables, image: `assets/${id}.svg`, description, levels: membership, alternatives: syllables.map((syllable) => alternativesFor(syllable, membership.includes(2) ? 6 : 4)) });
+  });
+
   function validateWords(bank) {
     const ids = new Set();
     const names = new Set();
     for (const item of bank) {
       if (!/^[a-z]+$/.test(item.id) || ids.has(item.id) || names.has(item.word)) throw new Error('Identificador ou palavra repetida no banco.');
-      if (!/^[A-Z]+$/.test(item.word) || item.syllables.length !== 2 || item.syllables.join('') !== item.word) throw new Error(`Divisão inválida: ${item.id}`);
-      if (item.image !== `assets/${item.id}.svg` || !item.description || item.alternatives.length !== 2) throw new Error(`Figura ou etapas inválidas: ${item.id}`);
+      if (!Array.isArray(item.levels) || !item.levels.length || new Set(item.levels).size !== item.levels.length || item.levels.some((id) => !levels.some((level) => level.id === id))) throw new Error(`Níveis inválidos: ${item.id}`);
+      if (!/^[A-Z]+$/.test(item.word) || item.levels.some((id) => item.syllables.length !== levels[id].syllableCount) || item.syllables.join('') !== item.word) throw new Error(`Divisão inválida: ${item.id}`);
+      if (item.image !== `assets/${item.id}.svg` || !item.description || item.alternatives.length !== item.syllables.length) throw new Error(`Figura ou etapas inválidas: ${item.id}`);
       item.alternatives.forEach((options, stage) => {
         const correct = item.syllables[stage];
-        if (!/^[BCDFGLMPRSTV][AEIOU]$/.test(correct) || options.length !== 4 || new Set(options).size !== 4 || options.filter((option) => option === correct).length !== 1 || options.some((option) => !/^[BCDFGLMPRSTV][AEIOU]$/.test(option) || option[0] !== correct[0])) throw new Error(`Alternativas inválidas: ${item.id}, etapa ${stage + 1}`);
+        const count = item.levels.includes(2) ? 6 : 4;
+        if (!/^[BCDFGJLMNPRSTV][AEIOU]$/.test(correct) || options.length !== count || new Set(options).size !== count || options.filter((option) => option === correct).length !== 1 || options.some((option) => !/^[BCDFGJLMNPRSTV][AEIOU]$/.test(option)) || (count === 4 && options.some((option) => option[0] !== correct[0])) || (count === 6 && options.filter((option) => option[0] === correct[0]).length !== 5)) throw new Error(`Alternativas inválidas: ${item.id}, etapa ${stage + 1}`);
       });
       ids.add(item.id);
       names.add(item.word);
     }
-    if (bank.length < 5) throw new Error('Uma rodada precisa de pelo menos cinco palavras.');
+    if (levels.some((level) => bank.filter((word) => word.levels.includes(level.id)).length < 5)) throw new Error('Cada nível precisa de pelo menos cinco palavras.');
     return true;
   }
 
   validateWords(words);
-  const data = { words, validateWords, levelZeroIds: ['bola', 'casa', 'gato', 'pato', 'sapo'] };
+  const data = { words, levels, validateWords, levelZeroIds: words.filter((word) => word.levels.includes(0)).map((word) => word.id) };
   if (typeof module !== 'undefined' && module.exports) module.exports = data;
   else root.SilabasData = data;
 })(typeof window !== 'undefined' ? window : globalThis);

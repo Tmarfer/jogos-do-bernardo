@@ -39,6 +39,10 @@ async function currentWord(page) {
   return words.find((word) => word.image === src);
 }
 
+function enabledChoice(page, syllable) {
+  return page.locator('#choices button:not(:disabled)').filter({ hasText: new RegExp(`^${syllable}$`) }).first();
+}
+
 async function screenshot(page, name) {
   if (!process.env.SCREENSHOT_DIR) return;
   await mkdir(process.env.SCREENSHOT_DIR, { recursive: true });
@@ -58,8 +62,10 @@ for (const [name, viewport] of [['ipad-retrato', { width: 768, height: 1024 }], 
       const sizes = await page.locator('.syllable-button').evaluateAll((buttons) => buttons.map((button) => ({ width: button.offsetWidth, height: button.offsetHeight })));
       assert.ok(sizes.every(({ width, height }) => width >= 80 && height >= 80));
       await screenshot(page, name);
-      await page.getByRole('button', { name: `Sílaba ${initial.syllables[1]}`, exact: true }).tap();
-      assert.ok((await page.locator('#feedback').textContent()).includes(`Comece com ${initial.syllables[0]}`));
+      if (initial.syllables[0] !== initial.syllables[1]) {
+        await enabledChoice(page, initial.syllables[1]).tap();
+        assert.ok((await page.locator('#feedback').textContent()).includes(`Comece com ${initial.syllables[0]}`));
+      }
       assert.deepEqual(await page.locator('.answer-slot').allTextContents(), ['?', '?']);
       assert.match(await page.locator('#progress-label').textContent(), /1 DE 5/);
 
@@ -70,13 +76,14 @@ for (const [name, viewport] of [['ipad-retrato', { width: 768, height: 1024 }], 
         completed.push(word);
         await checkImages(page);
         assert.equal(await page.locator('#word-model').getAttribute('aria-label'), `${word}: ${first} mais ${second}`);
-        await page.getByRole('button', { name: `Sílaba ${first}`, exact: true }).tap();
+        await enabledChoice(page, first).tap();
         assert.deepEqual(await page.locator('.answer-slot').allTextContents(), [first, '?']);
-        assert.equal(await page.getByRole('button', { name: `Sílaba ${first}`, exact: true }).isDisabled(), true);
+        const chosen = page.locator('#choices button:disabled').filter({ hasText: new RegExp(`^${first}$`) }).first();
+        assert.equal(await chosen.isDisabled(), true);
         // A repeated event cannot erase progress or fill the second slot.
-        await page.getByRole('button', { name: `Sílaba ${first}`, exact: true }).dispatchEvent('click');
+        await chosen.dispatchEvent('click');
         assert.deepEqual(await page.locator('.answer-slot').allTextContents(), [first, '?']);
-        await page.getByRole('button', { name: `Sílaba ${second}`, exact: true }).tap();
+        await enabledChoice(page, second).tap();
         assert.deepEqual(await page.locator('.answer-slot').allTextContents(), [first, second]);
         assert.equal(await page.locator('#celebration').isVisible(), true);
         assert.equal(await page.locator('#celebration img').count(), 3);
@@ -127,7 +134,7 @@ test('Sons opcionais, desligamento de animações e preferências após recarreg
   try {
     await page.locator('#level-zero').tap();
     const first = await currentWord(page);
-    for (const syllable of first.syllables) await page.getByRole('button', { name: `Sílaba ${syllable}`, exact: true }).tap();
+    for (const syllable of first.syllables) await enabledChoice(page, syllable).tap();
     assert.equal(await page.evaluate(() => window.__notes), 0);
     await page.locator('summary').tap();
     await page.locator('#sound-toggle').check();
@@ -135,7 +142,7 @@ test('Sons opcionais, desligamento de animações e preferências após recarreg
     await page.locator('summary').tap();
     await page.locator('#next-button').tap();
     const second = await currentWord(page);
-    for (const syllable of second.syllables) await page.getByRole('button', { name: `Sílaba ${syllable}`, exact: true }).tap();
+    for (const syllable of second.syllables) await enabledChoice(page, syllable).tap();
     await page.waitForFunction(() => window.__notes === 3);
     assert.equal(await page.locator('.pig').first().evaluate((pig) => getComputedStyle(pig).animationName), 'none');
     await page.locator('summary').tap();
@@ -163,7 +170,7 @@ test('Movimento reduzido, armazenamento indisponível e navegação por teclado'
     await page.locator('summary').click();
     await page.locator('#sound-toggle').check();
     await page.locator('summary').click();
-    await page.getByRole('button', { name: `Sílaba ${current.syllables[0]}`, exact: true }).focus();
+    await enabledChoice(page, current.syllables[0]).focus();
     await page.keyboard.press('Enter');
     assert.equal(await page.evaluate(() => document.activeElement.textContent), current.syllables[1]);
     await page.keyboard.press('Space');
@@ -171,6 +178,34 @@ test('Movimento reduzido, armazenamento indisponível e navegação por teclado'
     assert.equal(await page.locator('.pig').first().evaluate((pig) => getComputedStyle(pig).animationName), 'none');
     await page.keyboard.press('Enter');
     assert.match(await page.locator('#progress-label').textContent(), /2 DE 5/);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('Nível 0 ampliado: 20 palavras antes de repetir, incluindo dois toques em COCO', async () => {
+  const { context, page, errors } = await newGame();
+  try {
+    await page.locator('#level-zero').tap();
+    const seen = new Set();
+    for (let session = 0; session < 4; session++) {
+      const round = [];
+      for (let position = 0; position < 5; position++) {
+        const current = await currentWord(page);
+        assert.ok(!seen.has(current.id));
+        seen.add(current.id);
+        round.push(current.id);
+        assert.equal(await page.locator('#choices button').count(), 2);
+        await enabledChoice(page, current.syllables[0]).tap();
+        assert.deepEqual(await page.locator('.answer-slot').allTextContents(), [current.syllables[0], '?']);
+        await enabledChoice(page, current.syllables[1]).tap();
+        assert.equal(await page.locator('#completed-word').textContent(), current.word);
+        await page.locator('#next-button').tap();
+      }
+      assert.equal(new Set(round).size, 5);
+      if (session < 3) await page.locator('#restart-button').tap();
+    }
+    assert.equal(seen.size, 20);
+    assert.ok(seen.has('coco'));
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
 });
