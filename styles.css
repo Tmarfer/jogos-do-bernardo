@@ -42,6 +42,7 @@ h1{font-size:clamp(27px,4vw,36px);line-height:1.2;letter-spacing:-1px;margin:10p
 .answer{display:flex;justify-content:center;gap:12px;margin-bottom:22px}
 .answer-slot{display:flex;align-items:center;justify-content:center;width:116px;min-height:78px;border:2px dashed #c9d6c9;border-radius:19px;background:#f6f8f1;color:#82917d;font-size:30px;font-weight:750;letter-spacing:1px}
 .answer-slot.filled{border-style:solid;border-color:#b7d7c0;background:#edf5eb;color:var(--ink)}
+.answer-slot.current{border-style:solid;border-color:#7eaa8a;background:#f4f8f1}
 .choices{display:flex;justify-content:center;gap:18px}
 .syllable-button{width:144px;min-height:86px;border:0;border-radius:22px;font-size:32px;font-weight:800;letter-spacing:2px;background:var(--peach);box-shadow:0 5px 0 #e7c4a6;transition:transform .12s,box-shadow .12s}
 .syllable-button:nth-child(2){background:var(--mint);box-shadow:0 5px 0 #b1d2bf}
@@ -72,11 +73,17 @@ footer{text-align:center;font-size:11px;color:var(--muted);margin-top:28px;line-
 .home-card{padding-top:34px;padding-bottom:28px}
 .home-pig{display:block;margin:0 auto 22px}
 .home-card>p{font-size:18px;margin:0 0 24px}
-.level-button{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;width:100%;min-height:98px;margin:0 0 20px;padding:16px;border:0;border-radius:22px;background:var(--peach);box-shadow:0 5px 0 #e7c4a6;font-size:20px;font-weight:650;line-height:1.4}
-.level-button:nth-of-type(2){background:var(--mint);box-shadow:0 5px 0 #b1d2bf}
-.level-button:nth-of-type(3){background:#efe1f5;box-shadow:0 5px 0 #d4bcde}
+.level-list{display:grid;grid-template-columns:1fr;gap:12px}
+.level-button{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;width:100%;min-height:88px;margin:0;padding:14px 16px;border:0;border-radius:22px;background:var(--peach);box-shadow:0 5px 0 #e7c4a6;font-size:18px;font-weight:650;line-height:1.3}
+.level-list .level-button:nth-child(2){background:var(--mint);box-shadow:0 5px 0 #b1d2bf}
+.level-list .level-button:nth-child(3){background:#efe1f5;box-shadow:0 5px 0 #d4bcde}
+.level-list .level-button:nth-child(4){background:#d7eef2;box-shadow:0 5px 0 #b7d4d8}
+.level-list .level-button:nth-child(5){background:#f3e6c8;box-shadow:0 5px 0 #e0d0a8}
+.level-list .level-button:nth-child(6){background:#dcead4;box-shadow:0 5px 0 #b7d0ab}
 .level-number{font-weight:800}
-.home-card .home-note{font-size:14px;color:var(--muted);margin:26px 0 0}
+.level-hint{flex-basis:100%;font-size:14px;font-weight:550;color:#4e6158}
+.home-card .home-note{font-size:14px;color:var(--muted);margin:18px 0 0}
+.home-card>p.home-routine{font-size:14px;color:var(--muted);margin:8px 0 0;line-height:1.45}
 .game-navigation{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:-12px 0 12px}
 #level-label{font-size:10px;font-weight:750;letter-spacing:1.5px;color:var(--muted)}
 .text-button{min-height:44px;padding:8px 0 8px 12px;border:0;background:transparent;font-size:14px;font-weight:650;color:var(--green)}
@@ -106,27 +113,32 @@ html[data-motion="off"] *,html[data-motion="off"] *::before,html[data-motion="of
 @media(min-width:700px) and (max-height:700px){.game-navigation{margin-top:-12px;margin-bottom:0}.voice-note{margin-bottom:10px}.voice-controls{margin:0}.voice-controls .secondary-button{min-height:44px}.completed-word[hidden]+.word-model{font-size:28px;margin-bottom:10px}.completed-word{font-size:20px}.completed-word+.word-model{font-size:20px;margin-bottom:8px}}
 @media(min-width:700px) and (min-height:701px) and (max-height:850px){#game.selection-level .picture-wrap,#game.selection-level .picture{height:130px}#game.selection-level .party-art{height:76px}#game.selection-level .pig{height:64px}#game.selection-level .pig-two{height:74px}}
 @media(min-width:700px) and (min-height:701px) and (max-height:850px){#game[data-level="0"] .party-art{height:76px;margin-bottom:12px}#game[data-level="0"] .pig{height:64px}#game[data-level="0"] .pig-two{height:74px}}
-#game[data-level="2"] .choices{grid-template-columns:repeat(3,minmax(0,1fr))}
-#game[data-level="2"] .answer{gap:10px}
-#game[data-level="2"] .answer-slot{width:92px}
-@media(max-width:600px){#game[data-level="2"] .choices{grid-template-columns:repeat(2,minmax(0,1fr))}#game[data-level="2"] .answer-slot{width:30%;font-size:28px}.home-pig{margin-bottom:16px}}
+#game[data-choices="6"] .choices{grid-template-columns:repeat(3,minmax(0,1fr))}
+#game[data-choices="6"] .answer{gap:10px}
+#game[data-syllables="3"] .answer-slot{width:30%;min-width:0}
+#game[data-syllables="4"] .answer-slot{width:22%;min-width:0;font-size:22px}
+@media(max-width:600px){#game[data-choices="6"] .choices{grid-template-columns:repeat(2,minmax(0,1fr))}#game[data-syllables="3"] .answer-slot{width:30%;font-size:28px}#game[data-syllables="4"] .answer-slot{width:22%;min-width:0;font-size:18px}.home-pig{margin-bottom:16px}}
+@media(min-width:700px){.level-list{grid-template-columns:1fr 1fr}}
+@media(max-height:700px){.home-routine{display:none}}
 @media(min-width:700px) and (max-height:850px){.home-card{padding-top:22px}.home-pig{width:60px;height:60px;margin-bottom:12px}.home-card>p{margin-bottom:16px}.level-button{min-height:80px;margin-bottom:16px}.home-card .home-note{margin-top:18px}}
 @media(min-width:900px) and (max-height:850px){
-  #game[data-level="2"] #round{display:grid;grid-template-columns:180px minmax(0,1fr);column-gap:20px;row-gap:12px;margin-top:16px;align-items:start}
-  #game[data-level="2"] .picture-wrap{grid-column:1;grid-row:1 / 4;width:180px;height:164px;margin:0}
-  #game[data-level="2"] .picture{height:164px;width:180px}
-  #game[data-level="2"] .picture-decoration{display:none}
-  #game[data-level="2"] .voice-controls{grid-column:1;grid-row:4;flex-direction:column;margin:0;gap:8px}
-  #game[data-level="2"] .voice-note{grid-column:1;grid-row:5;margin:0;line-height:1.5}
-  #game[data-level="2"] .instruction{grid-column:2;grid-row:1;margin:0;font-size:15px}
-  #game[data-level="2"] .answer{grid-column:2;grid-row:2;margin:0;gap:8px}
-  #game[data-level="2"] .answer-slot{width:30%;min-height:64px;font-size:27px}
-  #game[data-level="2"] .choices{grid-column:2;grid-row:3 / 6;gap:12px}
-  #game[data-level="2"] .syllable-button{min-height:82px;font-size:29px}
-  #game[data-level="2"] .completed-word{grid-column:1;grid-row:4;font-size:20px;letter-spacing:1px;margin:0}
-  #game[data-level="2"] .word-model{grid-column:1;grid-row:5;gap:4px;font-size:18px;margin:0;letter-spacing:0}
-  #game[data-level="2"] .model-separator{font-size:18px}
-  #game[data-level="2"] .celebration{grid-column:2;grid-row:3 / 6;min-width:0}
-  #game[data-level="2"] .party-art{height:76px;gap:4px;margin:4px auto 16px}
-  #game[data-level="2"] .primary-button{min-height:60px;font-size:17px;padding:10px}
+  #game[data-choices="6"] #round{display:grid;grid-template-columns:180px minmax(0,1fr);column-gap:20px;row-gap:12px;margin-top:16px;align-items:start}
+  #game[data-choices="6"] .picture-wrap{grid-column:1;grid-row:1 / 4;width:180px;height:164px;margin:0}
+  #game[data-choices="6"] .picture{height:164px;width:180px}
+  #game[data-choices="6"] .picture-decoration{display:none}
+  #game[data-choices="6"] .voice-controls{grid-column:1;grid-row:4;flex-direction:column;margin:0;gap:8px}
+  #game[data-choices="6"] .voice-note{grid-column:1;grid-row:5;margin:0;line-height:1.5}
+  #game[data-choices="6"] .instruction{grid-column:2;grid-row:1;margin:0;font-size:15px}
+  #game[data-choices="6"] .answer{grid-column:2;grid-row:2;margin:0;gap:8px}
+  #game[data-choices="6"] .answer-slot{width:30%;min-height:64px;font-size:27px}
+  #game[data-choices="6"] .choices{grid-column:2;grid-row:3 / 6;gap:12px}
+  #game[data-choices="6"] .syllable-button{min-height:82px;font-size:29px}
+  #game[data-choices="6"] .completed-word{grid-column:1;grid-row:4;font-size:20px;letter-spacing:1px;margin:0}
+  #game[data-choices="6"] .word-model{grid-column:1;grid-row:5;gap:4px;font-size:18px;margin:0;letter-spacing:0}
+  #game[data-choices="6"] .model-separator{font-size:18px}
+  #game[data-choices="6"] .celebration{grid-column:2;grid-row:3 / 6;min-width:0}
+  #game[data-choices="6"] .party-art{height:76px;gap:4px;margin:4px auto 16px}
+  #game[data-choices="6"] .primary-button{min-height:60px;font-size:17px;padding:10px}
+  #game[data-choices="6"][data-syllables="4"] .answer-slot{width:22%;min-width:0;font-size:20px}
+  .level-list .level-button{margin-bottom:0}
 }

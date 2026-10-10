@@ -1,6 +1,7 @@
 // Add words here. Each stage has complete syllables and exactly one correct answer.
 (function (root) {
   'use strict';
+  const extras = (typeof module !== 'undefined' && module.exports) ? require('./lexicon.js') : root.SilabasLexicon;
   const words = [
     { id: 'bola', word: 'BOLA', syllables: ['BO', 'LA'], image: 'assets/bola.svg', description: 'Bola colorida', alternatives: [['BA', 'BO', 'BE', 'BI'], ['LI', 'LU', 'LA', 'LE']] },
     { id: 'casa', word: 'CASA', syllables: ['CA', 'SA'], image: 'assets/casa.svg', description: 'Casa com telhado vermelho', alternatives: [['CA', 'CO', 'CU', 'CE'], ['SA', 'SE', 'SI', 'SO']] },
@@ -25,17 +26,28 @@
   ];
 
   const levels = [
-    { id: 0, title: 'Junte as sílabas', buttonId: 'level-zero', syllableCount: 2, choiceCount: 2 },
-    { id: 1, title: 'Escolha as sílabas', buttonId: 'level-one', syllableCount: 2, choiceCount: 4 },
-    { id: 2, title: 'Palavras maiores', buttonId: 'level-two', syllableCount: 3, choiceCount: 6 },
+    { id: 0, title: 'Junte as sílabas', buttonId: 'level-zero', syllableCount: 2, choiceCount: 2, choiceMode: 'model' },
+    { id: 1, title: 'Escolha as sílabas', buttonId: 'level-one', syllableCount: 2, choiceCount: 4, choiceMode: 'vowel' },
+    { id: 2, title: 'Palavras maiores', buttonId: 'level-two', syllableCount: 3, choiceCount: 6, choiceMode: 'family' },
+    { id: 3, title: 'Sílabas parecidas', buttonId: 'level-three', syllableCount: 3, choiceCount: 6, choiceMode: 'contrast' },
+    { id: 4, title: 'Palavras longas', buttonId: 'level-four', syllableCount: 4, choiceCount: 6, choiceMode: 'family' },
+    { id: 5, title: 'Desafio', buttonId: 'level-five', syllableCount: 4, choiceCount: 6, choiceMode: 'contrast' },
   ];
   words.forEach((word) => { word.levels = [0, 1]; });
 
-  function alternativesFor(syllable, count) {
+  function choiceModeFor(membership) {
+    if (membership.some((id) => id === 3 || id === 5)) return 'contrast';
+    if (membership.some((id) => id === 2 || id === 4)) return 'family';
+    return 'vowel';
+  }
+
+  function alternativesFor(syllable, mode) {
     const family = ['A', 'E', 'I', 'O', 'U'].map((vowel) => syllable[0] + vowel);
-    if (count === 4) return [syllable, ...family.filter((option) => option !== syllable)].slice(0, 4);
+    if (mode === 'vowel') return [syllable, ...family.filter((option) => option !== syllable)].slice(0, 4);
     const neighbor = { B: 'P', C: 'G', D: 'T', F: 'V', G: 'C', J: 'G', L: 'R', M: 'N', N: 'M', P: 'B', R: 'L', S: 'T', T: 'D', V: 'F' };
-    return [...family, neighbor[syllable[0]] + syllable[1]];
+    if (mode === 'family') return [...family, neighbor[syllable[0]] + syllable[1]];
+    const contrast = { B: 'D', C: 'T', D: 'B', F: 'S', G: 'D', J: 'D', L: 'N', M: 'B', N: 'L', P: 'T', R: 'N', S: 'F', T: 'P', V: 'B' };
+    return [syllable, neighbor[syllable[0]] + syllable[1], contrast[syllable[0]] + syllable[1], ...family.filter((option) => option !== syllable).slice(0, 3)];
   }
 
   const newWords = [
@@ -66,7 +78,11 @@
     ['camisa', 'CAMISA', ['CA', 'MI', 'SA'], 'Camisa com gola e botões', [2]],
   ];
   newWords.forEach(([id, word, syllables, description, membership]) => {
-    words.push({ id, word, syllables, image: `assets/${id}.svg`, description, levels: membership, alternatives: syllables.map((syllable) => alternativesFor(syllable, membership.includes(2) ? 6 : 4)) });
+    words.push({ id, word, syllables, image: `assets/${id}.svg`, description, levels: membership, alternatives: syllables.map((syllable) => alternativesFor(syllable, choiceModeFor(membership))) });
+  });
+  extras.forEach(([id, word, syllables, description, membership]) => {
+    const assigned = membership[0] === 0 ? [0, 1] : membership;
+    words.push({ id, word, syllables, image: `assets/${id}.svg`, description, levels: assigned, alternatives: syllables.map((syllable) => alternativesFor(syllable, choiceModeFor(assigned))) });
   });
 
   // Speech-only spelling: accents make short syllables pronounceable rather than acronyms.
@@ -89,24 +105,49 @@
     for (const item of bank) {
       if (!/^[a-z]+$/.test(item.id) || ids.has(item.id) || names.has(item.word)) throw new Error('Identificador ou palavra repetida no banco.');
       if (!Array.isArray(item.levels) || !item.levels.length || new Set(item.levels).size !== item.levels.length || item.levels.some((id) => !levels.some((level) => level.id === id))) throw new Error(`Níveis inválidos: ${item.id}`);
+      const modes = new Set(item.levels.map((id) => levels[id].choiceMode).filter((mode) => mode !== 'model'));
+      if (modes.size > 1) throw new Error(`Modos misturados: ${item.id}`);
       if (!/^[A-Z]+$/.test(item.word) || item.levels.some((id) => item.syllables.length !== levels[id].syllableCount) || item.syllables.join('') !== item.word) throw new Error(`Divisão inválida: ${item.id}`);
       if (item.image !== `assets/${item.id}.svg` || !item.description || item.alternatives.length !== item.syllables.length) throw new Error(`Figura ou etapas inválidas: ${item.id}`);
       if (!Array.isArray(item.spokenSyllables) || item.spokenSyllables.length !== item.syllables.length || item.spokenSyllables.some((spoken, stage) =>
         typeof spoken !== 'string' || !/^[bcdfgjlmnprstv][áéêíóôú]$/.test(spoken) || spoken.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase() !== item.syllables[stage])) throw new Error(`Pronúncia inválida: ${item.id}`);
+      const mode = modes.has('contrast') ? 'contrast' : modes.has('family') ? 'family' : 'vowel';
       item.alternatives.forEach((options, stage) => {
         const correct = item.syllables[stage];
-        const count = item.levels.includes(2) ? 6 : 4;
-        if (!/^[BCDFGJLMNPRSTV][AEIOU]$/.test(correct) || options.length !== count || new Set(options).size !== count || options.filter((option) => option === correct).length !== 1 || options.some((option) => !/^[BCDFGJLMNPRSTV][AEIOU]$/.test(option)) || (count === 4 && options.some((option) => option[0] !== correct[0])) || (count === 6 && options.filter((option) => option[0] === correct[0]).length !== 5)) throw new Error(`Alternativas inválidas: ${item.id}, etapa ${stage + 1}`);
+        const count = mode === 'vowel' ? 4 : 6;
+        const sameConsonant = options.filter((option) => option[0] === correct[0]).length;
+        if (!/^[BCDFGJLMNPRSTV][AEIOU]$/.test(correct) || options.length !== count || new Set(options).size !== count || options.filter((option) => option === correct).length !== 1 || options.some((option) => !/^[BCDFGJLMNPRSTV][AEIOU]$/.test(option)) || (mode === 'vowel' && sameConsonant !== 4) || (mode === 'family' && sameConsonant !== 5) || (mode === 'contrast' && new Set(options.map((option) => option[0])).size < 2)) throw new Error(`Alternativas inválidas: ${item.id}, etapa ${stage + 1}`);
       });
       ids.add(item.id);
       names.add(item.word);
     }
     if (levels.some((level) => bank.filter((word) => word.levels.includes(level.id)).length < 5)) throw new Error('Cada nível precisa de pelo menos cinco palavras.');
+    if (bank.length < 500) throw new Error('O banco precisa de pelo menos 500 palavras.');
     return true;
   }
 
+  function shuffleWith(items, random) {
+    const result = [...items];
+    for (let i = result.length - 1; i > 0; i--) {
+      const j = Math.floor(random() * (i + 1));
+      [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
+  }
+
+  function planRound(pool, presented, size = 5, random = Math.random) {
+    const unseen = pool.filter((word) => !presented.has(word.id));
+    const seen = pool.filter((word) => presented.has(word.id));
+    return [...shuffleWith(unseen, random), ...shuffleWith(seen, random)].slice(0, size);
+  }
+
+  function noteShown(presented, poolSize, id) {
+    presented.add(id);
+    if (presented.size === poolSize) presented.clear();
+  }
+
   validateWords(words);
-  const data = { words, levels, validateWords, levelZeroIds: words.filter((word) => word.levels.includes(0)).map((word) => word.id) };
+  const data = { words, levels, validateWords, levelZeroIds: words.filter((word) => word.levels.includes(0)).map((word) => word.id), planRound, noteShown };
   if (typeof module !== 'undefined' && module.exports) module.exports = data;
   else root.SilabasData = data;
 })(typeof window !== 'undefined' ? window : globalThis);

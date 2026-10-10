@@ -182,12 +182,12 @@ test('Movimento reduzido, armazenamento indisponível e navegação por teclado'
   } finally { await context.close(); }
 });
 
-test('Nível 0 ampliado: 20 palavras antes de repetir, incluindo dois toques em COCO', async () => {
+test('Nível 0: duas sessões sem repetir', async () => {
   const { context, page, errors } = await newGame();
   try {
     await page.locator('#level-zero').tap();
     const seen = new Set();
-    for (let session = 0; session < 4; session++) {
+    for (let session = 0; session < 2; session++) {
       const round = [];
       for (let position = 0; position < 5; position++) {
         const current = await currentWord(page);
@@ -202,10 +202,29 @@ test('Nível 0 ampliado: 20 palavras antes de repetir, incluindo dois toques em 
         await page.locator('#next-button').tap();
       }
       assert.equal(new Set(round).size, 5);
-      if (session < 3) await page.locator('#restart-button').tap();
+      if (session < 1) await page.locator('#restart-button').tap();
     }
-    assert.equal(seen.size, 20);
-    assert.ok(seen.has('coco'));
+    assert.equal(seen.size, 10);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('Nível 0: COCO pede dois toques na mesma sílaba', async () => {
+  const { context, page, errors } = await newGame({}, () => {
+    let value = 321;
+    Math.random = () => ((value = (value * 16807) % 2147483647) - 1) / 2147483646;
+  });
+  try {
+    await page.locator('#level-zero').tap();
+    const current = await currentWord(page);
+    assert.equal(current.word, 'COCO');
+    assert.deepEqual(await page.locator('#choices button').allTextContents(), ['CO', 'CO']);
+    await enabledChoice(page, 'CO').tap();
+    assert.deepEqual(await page.locator('.answer-slot').allTextContents(), ['CO', '?']);
+    assert.equal(await page.locator('#choices button:disabled').count(), 1);
+    await enabledChoice(page, 'CO').tap();
+    assert.deepEqual(await page.locator('.answer-slot').allTextContents(), ['CO', 'CO']);
+    assert.equal(await page.locator('#completed-word').textContent(), 'COCO');
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
 });

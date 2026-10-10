@@ -1,8 +1,8 @@
 (() => {
   'use strict';
 
-  const { words, levels } = window.SilabasData;
-  const ordinals = ['Primeira', 'Segunda', 'Terceira'];
+  const { words, levels, planRound, noteShown } = window.SilabasData;
+  const ordinals = ['Primeira', 'Segunda', 'Terceira', 'Quarta'];
   const byId = (id) => document.getElementById(id);
   const ui = {
     picture: byId('picture'), model: byId('word-model'), choices: byId('choices'),
@@ -64,14 +64,13 @@
     level = chosenLevel;
     const pool = wordPool();
     // Reserve a round, but mark words as presented only when actually shown.
-    roundWords = [
-      ...shuffle(pool.filter((word) => !presented[level].has(word.id))),
-      ...shuffle(pool.filter((word) => presented[level].has(word.id))),
-    ].slice(0, 5);
+    roundWords = planRound(pool, presented[level]);
     index = 0;
     ui.home.hidden = true;
     ui.game.hidden = false;
     ui.game.dataset.level = String(level);
+    ui.game.dataset.syllables = String(levels[level].syllableCount);
+    ui.game.dataset.choices = String(levels[level].choiceCount);
     ui.game.classList.toggle('selection-level', level > 0);
     ui.title.textContent = levels[level].title;
     ui.level.textContent = `NÍVEL ${level}`;
@@ -183,7 +182,7 @@
   }
 
   function renderProgress(finished = false) {
-    ui.progress.textContent = finished ? '5 PALAVRAS MONTADAS' : `PALAVRA ${index + 1} DE 5`;
+    ui.progress.textContent = finished ? '5 PALAVRAS MONTADAS' : `VEZ ${index + 1} DE 5`;
     ui.dots.replaceChildren();
     roundWords.forEach((_, position) => {
       const dot = document.createElement('span');
@@ -235,8 +234,7 @@
     speechFailed = false;
     replaySyllables = false;
     const current = roundWords[index];
-    presented[level].add(current.id);
-    if (presented[level].size === wordPool().length) presented[level].clear();
+    noteShown(presented[level], wordPool().length, current.id);
     ui.round.hidden = false;
     ui.finish.hidden = true;
     ui.celebration.hidden = true;
@@ -257,7 +255,7 @@
     current.syllables.forEach((_, position) => {
       const slot = document.createElement('span');
       slot.textContent = '?';
-      slot.className = 'answer-slot';
+      slot.className = position === 0 ? 'answer-slot current' : 'answer-slot';
       slot.setAttribute('aria-label', `${ordinals[position]} sílaba, vazia`);
       ui.answer.append(slot);
     });
@@ -278,10 +276,12 @@
     const slot = ui.answer.children[selected];
     slot.textContent = syllable;
     slot.classList.add('filled');
+    slot.classList.remove('current');
     slot.setAttribute('aria-label', `${ordinals[selected]} sílaba: ${syllable}`);
     button.disabled = true;
     selected += 1;
     if (selected < current.syllables.length) {
+      ui.answer.children[selected].classList.add('current');
       if (level > 0) {
         cancelSpeech();
         ui.instruction.textContent = `Agora escolha a ${ordinals[selected].toLowerCase()} sílaba.`;

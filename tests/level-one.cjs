@@ -36,8 +36,8 @@ async function noReveal(page, word) {
   assert.equal(await page.locator('#word-model').getAttribute('aria-label'), null);
   assert.equal(await page.locator('#completed-word').textContent(), '');
   assert.equal(await page.locator('#picture').getAttribute('alt'), 'Figura da palavra desta rodada');
-  assert.ok(!(await page.locator('#game').innerText()).includes(word.word));
-  assert.ok(!(await page.locator('#game').ariaSnapshot()).includes(word.word));
+  assert.ok(!(await page.locator('#round').innerText()).includes(word.word));
+  assert.ok(!(await page.locator('#round').ariaSnapshot()).includes(word.word));
 }
 async function complete(page) {
   const word = await current(page);
@@ -195,7 +195,7 @@ function fakeSpeech() {
   window.webkitAudioContext = undefined;
 }
 
-for (const [level, seed, repeatedWord] of [[1, 1, 'COCO'], [2, 8520, 'BANANA']]) {
+for (const [level, seed, repeatedWord] of [[1, 246, 'COCO'], [2, 1099, 'BANANA']]) {
   test(`Nível ${level}: ouvir alterna palavra/sílabas, preserva repetições e reinicia por palavra`, async () => {
     const { page, context, errors, remote } = await game({}, fakeSpeech);
     try {

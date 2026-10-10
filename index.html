@@ -8,6 +8,7 @@
   <title>Sílabas do Bê</title>
   <link rel="icon" href="assets/porquinho.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <script src="lexicon.js" defer></script>
   <script src="words.js" defer></script>
   <script src="app.js" defer></script>
 </head>
@@ -33,14 +34,20 @@
       <section id="home" class="game-card home-card" aria-label="Escolha de nível">
         <img class="home-pig" src="assets/porquinho.svg" width="88" height="88" alt="">
         <p>Escolha um jeito de brincar.</p>
-        <button id="level-zero" class="level-button" type="button"><span class="level-number">Nível 0</span><span>— Juntar sílabas</span></button>
-        <button id="level-one" class="level-button" type="button"><span class="level-number">Nível 1</span><span>— Escolher sílabas</span></button>
-        <button id="level-two" class="level-button" type="button"><span class="level-number">Nível 2</span><span>— Palavras maiores</span></button>
-        <p class="home-note">Cinco palavras por vez. Sem pressa.</p>
+        <div class="level-list">
+          <button id="level-zero" class="level-button" type="button"><span class="level-number">Nível 0</span><span>Junte as sílabas</span><span class="level-hint">2 sílabas, com modelo</span></button>
+          <button id="level-one" class="level-button" type="button"><span class="level-number">Nível 1</span><span>Escolha as sílabas</span><span class="level-hint">sem o modelo</span></button>
+          <button id="level-two" class="level-button" type="button"><span class="level-number">Nível 2</span><span>Palavras maiores</span><span class="level-hint">três sílabas</span></button>
+          <button id="level-three" class="level-button" type="button"><span class="level-number">Nível 3</span><span>Sílabas parecidas</span><span class="level-hint">sílabas bem parecidas</span></button>
+          <button id="level-four" class="level-button" type="button"><span class="level-number">Nível 4</span><span>Palavras longas</span><span class="level-hint">quatro sílabas</span></button>
+          <button id="level-five" class="level-button" type="button"><span class="level-number">Nível 5</span><span>Desafio</span><span class="level-hint">quatro sílabas e sílabas parecidas</span></button>
+        </div>
+        <p class="home-note">Cinco palavras sorteadas. Sem pressa e sem nota.</p>
+        <p class="home-routine">Olhe a figura. Toque as sílabas. Você escolhe quando continuar.</p>
       </section>
       <section id="game" class="game-card" aria-label="Jogo de sílabas" hidden>
         <div class="game-navigation"><span id="level-label">NÍVEL 0</span><button id="back-button" class="text-button" type="button">← Trocar nível</button></div>
-        <div class="progress-row"><span id="progress-label">PALAVRA 1 DE 5</span><div id="progress-dots" class="progress-dots" aria-hidden="true"></div></div>
+        <div class="progress-row"><span id="progress-label">VEZ 1 DE 5</span><div id="progress-dots" class="progress-dots" aria-hidden="true"></div></div>
 
         <div id="round">
           <div class="picture-wrap"><span class="picture-decoration decoration-one" aria-hidden="true">✦</span><img id="picture" class="picture" width="210" height="180" src="assets/bola.svg" alt="Bola colorida"><span class="picture-decoration decoration-two" aria-hidden="true">✦</span></div>

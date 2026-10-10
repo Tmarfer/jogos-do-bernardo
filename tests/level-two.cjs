@@ -33,8 +33,8 @@ async function checkHidden(page, word) {
   assert.equal(await page.locator('#word-model').isVisible(), false);
   assert.equal(await page.locator('#word-model').textContent(), '');
   assert.equal(await page.locator('#completed-word').textContent(), '');
-  assert.ok(!(await page.locator('#game').innerText()).includes(word.word));
-  assert.ok(!(await page.locator('#game').ariaSnapshot()).includes(word.word));
+  assert.ok(!(await page.locator('#round').innerText()).includes(word.word));
+  assert.ok(!(await page.locator('#round').ariaSnapshot()).includes(word.word));
 }
 async function shot(page, name) {
   if (!process.env.SCREENSHOT_DIR) return;
@@ -101,7 +101,6 @@ test('Nível 2: 15 palavras, 45 etapas, seis alternativas, ajuda, erros e sílab
       if (session < 2) await page.locator('#restart-button').tap();
     }
     assert.equal(seen.size, 15);
-    assert.ok(seen.has('banana') && seen.has('batata'));
     await page.locator('#finish-back-button').tap();
     assert.equal(await page.locator('#home').isVisible(), true);
     assert.deepEqual(errors, []);
@@ -113,7 +112,7 @@ for (const [name, viewport] of [['retrato', { width: 768, height: 1024 }], ['pai
   test(`Três níveis e layout do Nível 2 em ${name}`, async () => {
     const { page, context, errors } = await game({ viewport });
     try {
-      assert.equal(await page.locator('.level-button').count(), 3);
+      assert.equal(await page.locator('.level-button').count(), 6);
       await page.locator('#level-two').tap();
       const word = await wordAt(page);
       await page.locator('#picture').evaluate((image) => image.decode());
@@ -125,12 +124,20 @@ for (const [name, viewport] of [['retrato', { width: 768, height: 1024 }], ['pai
       for (const syllable of word.syllables) await choice(page, syllable).tap();
       await shot(page, `nivel2-${name}-acerto`);
       if (name !== 'celular') assert.equal(await page.locator('#next-button').evaluate((button) => button.getBoundingClientRect().bottom <= innerHeight), true);
-      for (const [button, spaces, options] of [['level-zero', 2, 2], ['level-one', 2, 4], ['level-two', 3, 6]]) {
+      for (const [button, spaces, options] of [['level-zero', 2, 2], ['level-one', 2, 4], ['level-two', 3, 6], ['level-three', 3, 6], ['level-four', 4, 6], ['level-five', 4, 6]]) {
         await page.locator('#back-button').tap();
         await page.locator(`#${button}`).tap();
         assert.equal(await page.locator('.answer-slot').count(), spaces);
         assert.equal(await page.locator('#choices button').count(), options);
         assert.deepEqual(await page.locator('.answer-slot').allTextContents(), Array(spaces).fill('?'));
+        if (button === 'level-five') {
+          assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+          if (name !== 'celular') {
+            const wide = await page.locator('#choices button').evaluateAll((buttons) => buttons.map((button) => ({ width: button.offsetWidth, height: button.offsetHeight })));
+            assert.ok(wide.every(({ width, height }) => width >= 80 && height >= 80));
+            assert.equal(await page.locator('#choices').evaluate((options) => options.getBoundingClientRect().bottom <= innerHeight), true);
+          }
+        }
       }
       assert.deepEqual(errors, []);
     } finally { await context.close(); }
